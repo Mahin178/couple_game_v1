@@ -16,9 +16,12 @@ export class InteriorScene extends Phaser.Scene {
             x: data?.returnX || 500,
             y: data?.returnY || 500
         };
+        this.interiorTheme = data?.theme || "warm";
+        this.buildingId = data?.buildingId || "home_a";
+        this.exitReadyAt = this.time.now + 650;
 
         this.hud = createHudControls();
-        this.hud.setMission("Explore the house and walk to the exit");
+        this.hud.setMission(`Inside ${this.buildingId.replace("home_", "building ").toUpperCase()} - walk to exit door`);
         this.hud.showGameOver(false);
         this.hud.showDrivePad(false);
         this.hud.showAction("drive", false);
@@ -40,13 +43,23 @@ export class InteriorScene extends Phaser.Scene {
         const width = ROOM_W * TILE_SIZE;
         const height = ROOM_H * TILE_SIZE;
 
-        this.add.rectangle(0, 0, width, height, 0x9f8c74).setOrigin(0, 0);
+        const theme = {
+            warm: { floor: 0xa78c74, wall: 0x4e4034, rug: 0xc36f5e },
+            mint: { floor: 0x8ea89f, wall: 0x38594e, rug: 0x6cb9b1 },
+            sunset: { floor: 0xb29587, wall: 0x6d4b3e, rug: 0xe07f67 }
+        }[this.interiorTheme] || { floor: 0xa78c74, wall: 0x4e4034, rug: 0xc36f5e };
+
+        this.add.rectangle(0, 0, width, height, theme.floor).setOrigin(0, 0);
+        this.add.rectangle(width / 2, height / 2, width - 90, height - 120, theme.rug, 0.72);
+        this.add.rectangle(width / 2, 70, 200, 38, 0x6f5645, 0.9);
+        this.add.rectangle(width / 2 - 220, height / 2 + 80, 100, 36, 0x6f5645, 0.9);
+        this.add.rectangle(width / 2 + 220, height / 2 + 80, 100, 36, 0x6f5645, 0.9);
 
         const wall = this.add.staticGroup();
-        const top = this.add.rectangle(width / 2, 10, width, 20, 0x4e4034);
-        const bottom = this.add.rectangle(width / 2, height - 10, width, 20, 0x4e4034);
-        const left = this.add.rectangle(10, height / 2, 20, height, 0x4e4034);
-        const right = this.add.rectangle(width - 10, height / 2, 20, height, 0x4e4034);
+        const top = this.add.rectangle(width / 2, 10, width, 20, theme.wall);
+        const bottom = this.add.rectangle(width / 2, height - 10, width, 20, theme.wall);
+        const left = this.add.rectangle(10, height / 2, 20, height, theme.wall);
+        const right = this.add.rectangle(width - 10, height / 2, 20, height, theme.wall);
 
         wall.add(top);
         wall.add(bottom);
@@ -60,6 +73,7 @@ export class InteriorScene extends Phaser.Scene {
 
         this.exitZone = this.add.zone(width / 2, height - 40, 160, 44);
         this.physics.add.existing(this.exitZone, true);
+        this.add.rectangle(width / 2, height - 28, 70, 10, 0xf8e19d, 0.85);
 
         this.physics.world.setBounds(0, 0, width, height);
         this.cameras.main.setBounds(0, 0, width, height);
@@ -75,10 +89,6 @@ export class InteriorScene extends Phaser.Scene {
         for (const w of this.walls) {
             this.physics.add.collider(this.player.sprite, w);
         }
-
-        this.physics.add.overlap(this.player.sprite, this.exitZone, () => {
-            this.leaveHouse();
-        });
 
         this.cursors = this.input.keyboard.createCursorKeys();
         this.wasd = this.input.keyboard.addKeys("W,S,A,D");
@@ -125,6 +135,10 @@ export class InteriorScene extends Phaser.Scene {
 
         this.player.applyAnimation(direction, vec.lengthSq() > 0.01 ? "walk" : "idle");
         this.player.syncVisuals();
+
+        if (this.time.now > this.exitReadyAt && this.physics.overlap(this.player.sprite, this.exitZone)) {
+            this.leaveHouse();
+        }
     }
 
     leaveHouse() {

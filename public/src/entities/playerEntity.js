@@ -27,18 +27,25 @@ export class PlayerEntity {
 
         this.bubble = scene.add
             .text(x, y - 44, "", {
-                fontSize: "12px",
-                color: "#111",
-                backgroundColor: "#fff",
-                padding: { x: 7, y: 4 },
+                fontFamily: "\"Trebuchet MS\", \"Verdana\", sans-serif",
+                fontSize: "13px",
+                color: "#fff",
+                backgroundColor: "rgba(31, 19, 28, 0.82)",
+                stroke: "#f6b8d6",
+                strokeThickness: 1,
+                padding: { x: 8, y: 5 },
                 wordWrap: { width: 170 }
             })
             .setOrigin(0.5)
             .setAlpha(0)
             .setDepth(2000);
 
+        this.heldFlowerPetal = scene.add.circle(x + 10, y - 8, 4, 0xee3e79).setDepth(2004).setVisible(false);
+        this.heldFlowerStem = scene.add.rectangle(x + 10, y - 2, 2, 8, 0x2f8a52).setDepth(2003).setVisible(false);
+
         this.lastState = { x, y, direction: "down", animState: "idle", frame: frameOffset };
-        this.target = { x, y, direction: "down", animState: "idle", frame: frameOffset };
+        this.target = { x, y, direction: "down", animState: "idle", frame: frameOffset, hasFlower: false };
+        this.hasFlower = false;
         this.lastBubbleText = "";
         this.bubbleTween = null;
     }
@@ -47,6 +54,8 @@ export class PlayerEntity {
         this.sprite.setDepth(1000 + this.sprite.y);
         this.nameText.setDepth(2000 + this.sprite.y);
         this.bubble.setDepth(2001 + this.sprite.y);
+        this.heldFlowerStem.setDepth(2003 + this.sprite.y);
+        this.heldFlowerPetal.setDepth(2004 + this.sprite.y);
     }
 
     setName(name) {
@@ -60,6 +69,8 @@ export class PlayerEntity {
         this.target.direction = state.direction || this.target.direction;
         this.target.animState = state.animState || this.target.animState;
         this.target.frame = Number.isInteger(state.frame) ? state.frame : this.target.frame;
+        this.target.hasFlower = Boolean(state.hasFlower);
+        this.setHasFlower(this.target.hasFlower);
 
         if (state.message && state.message !== this.lastBubbleText) {
             this.showChatBubble(state.message);
@@ -70,6 +81,7 @@ export class PlayerEntity {
     syncVisuals() {
         this.nameText.setPosition(this.sprite.x, this.sprite.y - 26);
         this.bubble.setPosition(this.sprite.x, this.sprite.y - 44);
+        this.updateFlowerInHand();
         this.updateDepth();
     }
 
@@ -99,6 +111,26 @@ export class PlayerEntity {
 
     setVelocity(vx, vy) {
         this.sprite.body.setVelocity(vx, vy);
+    }
+
+    setHasFlower(value) {
+        this.hasFlower = Boolean(value);
+        this.heldFlowerPetal.setVisible(this.hasFlower);
+        this.heldFlowerStem.setVisible(this.hasFlower);
+    }
+
+    updateFlowerInHand() {
+        if (!this.hasFlower) {
+            return;
+        }
+
+        const dir = this.target.direction || this.lastState.direction || "right";
+        const side = dir === "left" ? -1 : 1;
+        const handX = this.sprite.x + (dir === "up" || dir === "down" ? 8 : side * 13);
+        const handY = this.sprite.y - (dir === "up" ? 10 : 6);
+
+        this.heldFlowerPetal.setPosition(handX, handY);
+        this.heldFlowerStem.setPosition(handX, handY + 6);
     }
 
     showChatBubble(text) {
@@ -139,20 +171,30 @@ export class PlayerEntity {
         const handX = this.sprite.x + (dir === "up" || dir === "down" ? 8 : side * 13);
         const handY = this.sprite.y - (dir === "up" ? 10 : 6);
 
-        const petal = this.scene.add.circle(handX, handY, 4, 0xee3e79).setDepth(this.sprite.depth + 5);
-        const stem = this.scene.add.rectangle(handX, handY + 5, 2, 8, 0x2f8a52).setDepth(this.sprite.depth + 4);
+        const petal = this.scene.add.circle(handX, handY, 5, 0xee3e79).setDepth(this.sprite.depth + 5);
+        const stem = this.scene.add.rectangle(handX, handY + 6, 2, 10, 0x2f8a52).setDepth(this.sprite.depth + 4);
+        const sparkleA = this.scene.add.circle(handX, handY, 2, 0xfff2b7).setDepth(this.sprite.depth + 6);
+        const sparkleB = this.scene.add.circle(handX, handY, 2, 0xfff2b7).setDepth(this.sprite.depth + 6);
 
         this.scene.tweens.add({
-            targets: [petal, stem],
-            x: handX + side * 12,
-            y: handY - 4,
-            angle: side * 20,
+            targets: [petal, stem, sparkleA, sparkleB],
+            x: handX + side * 18,
+            y: handY - 8,
+            angle: side * 30,
             alpha: 0,
-            duration: 360,
-            ease: "Cubic.out",
+            duration: 420,
+            ease: "Quad.out",
+            onUpdate: () => {
+                sparkleA.x = petal.x - 6 * side;
+                sparkleA.y = petal.y - 3;
+                sparkleB.x = petal.x + 5 * side;
+                sparkleB.y = petal.y + 2;
+            },
             onComplete: () => {
                 petal.destroy();
                 stem.destroy();
+                sparkleA.destroy();
+                sparkleB.destroy();
             }
         });
     }
@@ -161,5 +203,7 @@ export class PlayerEntity {
         this.sprite.destroy();
         this.nameText.destroy();
         this.bubble.destroy();
+        this.heldFlowerPetal.destroy();
+        this.heldFlowerStem.destroy();
     }
 }

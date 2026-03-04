@@ -60,6 +60,7 @@ export class WorldScene extends Phaser.Scene {
         this.lastSentState = null;
         this.drivePadVector = { x: 0, y: 0 };
         this.localHasFlower = false;
+        this.nearDoor = null;
         this.pendingFlowerOfferFrom = null;
         this.giveTargetId = null;
         this.loveBonus = 0;
@@ -138,7 +139,32 @@ export class WorldScene extends Phaser.Scene {
 
         this.blockLayer.setCollision([2, 3]);
 
-        this.houseDoorPoint = { x: 33 * TILE_SIZE, y: 35 * TILE_SIZE + 8 };
+        this.buildingDoors = [
+            {
+                id: "home_a",
+                x: 11.5 * TILE_SIZE,
+                y: 13 * TILE_SIZE - 6,
+                returnX: 11.5 * TILE_SIZE,
+                returnY: 13 * TILE_SIZE + 26,
+                interiorTheme: "warm"
+            },
+            {
+                id: "home_b",
+                x: 30 * TILE_SIZE + 14,
+                y: 13.5 * TILE_SIZE,
+                returnX: 30 * TILE_SIZE + 44,
+                returnY: 13.5 * TILE_SIZE + 20,
+                interiorTheme: "mint"
+            },
+            {
+                id: "home_c",
+                x: 33.5 * TILE_SIZE,
+                y: 35 * TILE_SIZE - 6,
+                returnX: 33.5 * TILE_SIZE,
+                returnY: 35 * TILE_SIZE + 26,
+                interiorTheme: "sunset"
+            }
+        ];
         this.physics.world.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
         this.cameras.main.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
     }
@@ -187,11 +213,13 @@ export class WorldScene extends Phaser.Scene {
         drawBuilding3D(30 * TILE_SIZE, 10 * TILE_SIZE, 7 * TILE_SIZE, 7 * TILE_SIZE, 0x6f7e65, 0x859179, "left");
         drawBuilding3D(31 * TILE_SIZE, 30 * TILE_SIZE, 5 * TILE_SIZE, 5 * TILE_SIZE, 0x8d7b66, 0xa28f79, "bottom");
 
-        decor.fillStyle(0xffd166, 0.88);
-        decor.fillRect(33 * TILE_SIZE - 16, 35 * TILE_SIZE - 10, 32, 10);
-        decor.fillStyle(0xfff2b0, 0.7);
-        decor.fillCircle(33 * TILE_SIZE - 8, 35 * TILE_SIZE - 12, 3);
-        decor.fillCircle(33 * TILE_SIZE + 8, 35 * TILE_SIZE - 12, 3);
+        for (const door of this.buildingDoors) {
+            decor.fillStyle(0xffd166, 0.88);
+            decor.fillRect(door.x - 16, door.y - 10, 32, 10);
+            decor.fillStyle(0xfff2b0, 0.7);
+            decor.fillCircle(door.x - 8, door.y - 12, 3);
+            decor.fillCircle(door.x + 8, door.y - 12, 3);
+        }
 
         decor.fillStyle(0xcabfab, 0.55);
         decor.fillRect(0, 21 * TILE_SIZE, WORLD_SIZE, 6);
@@ -337,6 +365,7 @@ export class WorldScene extends Phaser.Scene {
             const me = players[this.socketAdapter.id];
             if (me && typeof me.hasFlower === "boolean") {
                 this.localHasFlower = me.hasFlower;
+                this.localPlayer?.setHasFlower(this.localHasFlower);
             }
             this.syncRemotePlayers();
             this.updateLoveMeter();
@@ -402,6 +431,7 @@ export class WorldScene extends Phaser.Scene {
         this.unsubFlowerResponse = this.socketAdapter.on("flowerResponse", ({ accepted }) => {
             if (accepted) {
                 this.localHasFlower = false;
+                this.localPlayer?.setHasFlower(false);
                 this.hud.setMission("Flower accepted. Relationship boosted.");
             } else {
                 this.hud.setMission("Flower declined. Try again later.");
@@ -548,7 +578,8 @@ export class WorldScene extends Phaser.Scene {
                 direction: state.direction || "down",
                 animState: state.animState || "idle",
                 frame: state.frame,
-                message: state.message || ""
+                message: state.message || "",
+                hasFlower: Boolean(state.hasFlower)
             });
 
             const hidden = Boolean(state.inVehicle);
@@ -567,6 +598,7 @@ export class WorldScene extends Phaser.Scene {
 
     update(time, delta) {
         const dt = delta / 1000;
+        this.localPlayer.setHasFlower(this.localHasFlower);
 
         if (!this.isGameOver) {
             if (this.getDrivingVehicleId()) {
@@ -996,6 +1028,21 @@ export class WorldScene extends Phaser.Scene {
         return best;
     }
 
+    getNearbyDoor(maxDistance) {
+        let nearest = null;
+        let nearestDist = maxDistance;
+
+        for (const door of this.buildingDoors) {
+            const dist = Phaser.Math.Distance.Between(this.localPlayer.sprite.x, this.localPlayer.sprite.y, door.x, door.y);
+            if (dist < nearestDist) {
+                nearest = door;
+                nearestDist = dist;
+            }
+        }
+
+        return nearest;
+    }
+
     updateInteractionButtons() {
         if (this.isGameOver) {
             this.hud.showDrivePad(false);
@@ -1015,13 +1062,8 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showAction("sit", Boolean(rideCar) && !seat);
         this.hud.showAction("exitCar", Boolean(seat));
 
-        const nearHouseDoor = Phaser.Math.Distance.Between(
-            this.localPlayer.sprite.x,
-            this.localPlayer.sprite.y,
-            this.houseDoorPoint.x,
-            this.houseDoorPoint.y
-        ) < 78;
-        this.hud.showAction("openDoor", nearHouseDoor && !seat);
+        this.nearDoor = this.getNearbyDoor(84);
+        this.hud.showAction("openDoor", Boolean(this.nearDoor) && !seat);
 
         const nearFlower = Phaser.Math.Distance.Between(
             this.localPlayer.sprite.x,
@@ -1107,15 +1149,8 @@ export class WorldScene extends Phaser.Scene {
             return;
         }
 
-        const nearHouseDoor = Phaser.Math.Distance.Between(
-            this.localPlayer.sprite.x,
-            this.localPlayer.sprite.y,
-            this.houseDoorPoint.x,
-            this.houseDoorPoint.y
-        ) < 78;
-
-        if (nearHouseDoor && !this.isLocalInVehicle()) {
-            this.enterHouse();
+        if (this.nearDoor && !this.isLocalInVehicle()) {
+            this.enterHouse(this.nearDoor);
         }
     }
 
@@ -1133,6 +1168,7 @@ export class WorldScene extends Phaser.Scene {
 
         if (nearFlower) {
             this.localHasFlower = true;
+            this.localPlayer.setHasFlower(true);
             this.hud.setMission("Flower picked. Give it to your partner.");
         }
     }
@@ -1274,10 +1310,16 @@ export class WorldScene extends Phaser.Scene {
         }
     }
 
-    enterHouse() {
+    enterHouse(door) {
+        if (!door) {
+            return;
+        }
+
         this.scene.start("InteriorScene", {
-            returnX: 33 * TILE_SIZE,
-            returnY: 36 * TILE_SIZE
+            returnX: door.returnX,
+            returnY: door.returnY,
+            buildingId: door.id,
+            theme: door.interiorTheme
         });
     }
 
