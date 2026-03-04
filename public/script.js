@@ -1,81 +1,82 @@
 const socket = io();
-const map = document.getElementById("map");
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 let players = {};
 let position = { x: 500, y: 500 };
-let speed = 5;
+let frame = 0;
+let speed = 3;
 
 const isMobile = /Mobi|Android/i.test(navigator.userAgent);
-
 if (isMobile) {
-    document.getElementById("mobileControls").style.display = "flex";
+    document.getElementById("mobileJoystick").style.display = "block";
 }
 
-socket.on("currentPlayers", (serverPlayers) => {
-    players = serverPlayers;
-    drawPlayers();
-});
+const house = { x: 800, y: 800, width: 200, height: 200 };
 
-socket.on("updatePlayers", (serverPlayers) => {
-    players = serverPlayers;
-    drawPlayers();
-});
+socket.on("currentPlayers", (data) => players = data);
+socket.on("updatePlayers", (data) => players = data);
 
-function drawPlayers() {
-    map.innerHTML = "";
+function drawWorld() {
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const camX = position.x - canvas.width / 2;
+    const camY = position.y - canvas.height / 2;
+
+    // Ground
+    ctx.fillStyle = "#2ecc71";
+    ctx.fillRect(-camX, -camY, 2000, 2000);
+
+    // Buildings
+    ctx.fillStyle = "gray";
+    ctx.fillRect(400 - camX, 400 - camY, 150, 150);
+    ctx.fillRect(1200 - camX, 600 - camY, 200, 200);
+
+    // House
+    ctx.fillStyle = "brown";
+    ctx.fillRect(house.x - camX, house.y - camY, house.width, house.height);
 
     for (let id in players) {
-        const player = document.createElement("div");
-        player.classList.add("player");
-        player.style.left = players[id].x + "px";
-        player.style.top = players[id].y + "px";
 
-        if (id === socket.id) {
-            player.style.background = "blue";
-        } else {
-            player.style.background = "pink";
+        let p = players[id];
+
+        ctx.fillStyle = (id === socket.id) ? "blue" : "pink";
+        ctx.fillRect(p.x - camX, p.y - camY, 40, 40);
+
+        // Chat bubble
+        if (p.message) {
+            ctx.fillStyle = "white";
+            ctx.fillRect(p.x - camX, p.y - camY - 40, 120, 25);
+
+            ctx.fillStyle = "black";
+            ctx.fillText(p.message, p.x - camX + 5, p.y - camY - 22);
         }
-
-        map.appendChild(player);
     }
+
+    requestAnimationFrame(drawWorld);
 }
 
+drawWorld();
+
 document.addEventListener("keydown", (e) => {
-    if (isMobile) return;
 
     if (e.key === "ArrowUp") position.y -= speed;
     if (e.key === "ArrowDown") position.y += speed;
     if (e.key === "ArrowLeft") position.x -= speed;
     if (e.key === "ArrowRight") position.x += speed;
 
-    socket.emit("move", position);
+    frame = (frame + 1) % 4;
+
+    socket.emit("move", { x: position.x, y: position.y, frame });
 });
 
-if (isMobile) {
-    const controls = {
-        up: document.getElementById("up"),
-        down: document.getElementById("down"),
-        left: document.getElementById("left"),
-        right: document.getElementById("right")
-    };
-
-    controls.up.addEventListener("touchstart", () => {
-        position.y -= speed;
-        socket.emit("move", position);
-    });
-
-    controls.down.addEventListener("touchstart", () => {
-        position.y += speed;
-        socket.emit("move", position);
-    });
-
-    controls.left.addEventListener("touchstart", () => {
-        position.x -= speed;
-        socket.emit("move", position);
-    });
-
-    controls.right.addEventListener("touchstart", () => {
-        position.x += speed;
-        socket.emit("move", position);
-    });
-}
+document.getElementById("chatInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+        socket.emit("chat", e.target.value);
+        e.target.value = "";
+    }
+});
