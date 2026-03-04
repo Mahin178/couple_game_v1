@@ -22,6 +22,8 @@ export class InteriorScene extends Phaser.Scene {
         this.hud.showDrivePad(false);
         this.hud.showAction("drive", false);
         this.hud.showAction("sit", false);
+        this.hud.showAction("exitCar", false);
+        this.hud.showAction("openDoor", false);
         this.hud.showAction("pickFlower", false);
         this.hud.showAction("giveFlower", false);
         this.hud.showAction("acceptFlower", false);

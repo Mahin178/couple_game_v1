@@ -7,6 +7,8 @@ export function createHudControls() {
     const buttons = {
         drive: document.getElementById("btnDrive"),
         sit: document.getElementById("btnSit"),
+        exitCar: document.getElementById("btnExitCar"),
+        openDoor: document.getElementById("btnOpenDoor"),
         pickFlower: document.getElementById("btnPickFlower"),
         giveFlower: document.getElementById("btnGiveFlower"),
         acceptFlower: document.getElementById("btnAcceptFlower")

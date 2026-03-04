@@ -36,6 +36,8 @@ export class WorldScene extends Phaser.Scene {
             driverId: null,
             passengerId: null
         };
+        this.carVelocity = { x: 0, y: 0 };
+        this.carRender = { x: 1400, y: 1450 };
         this.lastEmitTime = 0;
         this.lastDriveEmitTime = 0;
         this.lastSentState = null;
@@ -115,6 +117,7 @@ export class WorldScene extends Phaser.Scene {
 
         this.houseZone = this.add.zone(33 * TILE_SIZE, 35 * TILE_SIZE, TILE_SIZE * 2, TILE_SIZE);
         this.physics.add.existing(this.houseZone, true);
+        this.houseDoorPoint = { x: 33 * TILE_SIZE, y: 35 * TILE_SIZE + 8 };
 
         this.physics.world.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
         this.cameras.main.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
@@ -222,11 +225,8 @@ export class WorldScene extends Phaser.Scene {
         this.localPlayer = new PlayerEntity(this, spawn.x, spawn.y, "player", 0, "local", "You", true);
 
         this.physics.add.collider(this.localPlayer.sprite, this.blockLayer);
-        this.physics.add.overlap(this.localPlayer.sprite, this.houseZone, () => {
-            if (!this.isLocalInVehicle()) {
-                this.enterHouse();
-            }
-        });
+        this.carRender.x = this.vehicleState.x;
+        this.carRender.y = this.vehicleState.y;
 
         this.cameras.main.startFollow(this.localPlayer.sprite, true, 0.16, 0.16);
     }
@@ -261,10 +261,18 @@ export class WorldScene extends Phaser.Scene {
         });
 
         this.unsubVehicle = this.socketAdapter.on("vehicleState", (state) => {
-            this.vehicleState = {
+            const drivingLocalNow = this.isDrivingLocal();
+            const merged = {
                 ...this.vehicleState,
                 ...state
             };
+
+            if (drivingLocalNow) {
+                merged.x = this.vehicleState.x;
+                merged.y = this.vehicleState.y;
+            }
+
+            this.vehicleState = merged;
             this.applyVehicleState();
         });
 
@@ -343,6 +351,8 @@ export class WorldScene extends Phaser.Scene {
 
         bind("drive", () => this.tryDrive());
         bind("sit", () => this.trySit());
+        bind("exitCar", () => this.exitCar());
+        bind("openDoor", () => this.openDoor());
         bind("pickFlower", () => this.pickFlower());
         bind("giveFlower", () => this.offerFlower());
         bind("acceptFlower", () => this.acceptFlower());
@@ -446,7 +456,7 @@ export class WorldScene extends Phaser.Scene {
             this.updateLocalMovement();
         }
 
-        if (this.keys.exitCar.isDown && this.isLocalInVehicle()) {
+        if (Phaser.Input.Keyboard.JustDown(this.keys.exitCar) && this.isLocalInVehicle()) {
             this.socketAdapter.vehicleAction({ action: "leave" });
         }
 
@@ -454,6 +464,7 @@ export class WorldScene extends Phaser.Scene {
         this.updateVehicleVisual();
         this.updateFlowerVisual();
         this.updateInteractionButtons();
+        this.updateCameraTarget();
         this.updateDayNight(time);
         this.updateLoveMeter();
         this.sendMoveIfNeeded(time);
@@ -554,15 +565,29 @@ export class WorldScene extends Phaser.Scene {
             vec.normalize();
         }
 
-        if (vec.lengthSq() > 0.001) {
-            car.x = clamp(car.x + vec.x * CAR_SPEED * dt, 60, WORLD_SIZE - 60);
-            car.y = clamp(car.y + vec.y * CAR_SPEED * dt, 60, WORLD_SIZE - 60);
+        const targetVx = vec.x * CAR_SPEED;
+        const targetVy = vec.y * CAR_SPEED;
+        const accelRate = 7;
+        const brakeRate = 8.5;
 
-            if (Math.abs(vec.x) > Math.abs(vec.y)) {
-                car.direction = vec.x >= 0 ? "right" : "left";
-            } else {
-                car.direction = vec.y >= 0 ? "down" : "up";
-            }
+        this.carVelocity.x = Phaser.Math.Linear(
+            this.carVelocity.x,
+            targetVx,
+            Math.min(1, dt * (vec.lengthSq() > 0.01 ? accelRate : brakeRate))
+        );
+        this.carVelocity.y = Phaser.Math.Linear(
+            this.carVelocity.y,
+            targetVy,
+            Math.min(1, dt * (vec.lengthSq() > 0.01 ? accelRate : brakeRate))
+        );
+
+        car.x = clamp(car.x + this.carVelocity.x * dt, 60, WORLD_SIZE - 60);
+        car.y = clamp(car.y + this.carVelocity.y * dt, 60, WORLD_SIZE - 60);
+
+        if (Math.abs(this.carVelocity.x) > Math.abs(this.carVelocity.y) && Math.abs(this.carVelocity.x) > 8) {
+            car.direction = this.carVelocity.x >= 0 ? "right" : "left";
+        } else if (Math.abs(this.carVelocity.y) > 8) {
+            car.direction = this.carVelocity.y >= 0 ? "down" : "up";
         }
 
         this.localPlayer.setVelocity(0, 0);
@@ -573,8 +598,8 @@ export class WorldScene extends Phaser.Scene {
         if (time - this.lastDriveEmitTime > 55) {
             this.lastDriveEmitTime = time;
             this.socketAdapter.driveInput({
-                x: Math.round(car.x),
-                y: Math.round(car.y),
+                x: Number(car.x.toFixed(1)),
+                y: Number(car.y.toFixed(1)),
                 direction: car.direction
             });
         }
@@ -585,8 +610,12 @@ export class WorldScene extends Phaser.Scene {
         const isLocalPassenger = this.vehicleState.passengerId === this.socketAdapter.id;
 
         if (isLocalDriver || isLocalPassenger) {
+            const px = this.vehicleState.x + (isLocalPassenger ? -22 : 0);
+            const py = this.vehicleState.y + (isLocalPassenger ? 10 : 0);
             this.localPlayer.sprite.x = this.vehicleState.x + (isLocalPassenger ? -22 : 0);
             this.localPlayer.sprite.y = this.vehicleState.y + (isLocalPassenger ? 10 : 0);
+            this.localPlayer.lastState.x = px;
+            this.localPlayer.lastState.y = py;
             this.localPlayer.syncVisuals();
             this.localPlayer.sprite.setVisible(false);
             this.localPlayer.nameText.setVisible(false);
@@ -600,14 +629,16 @@ export class WorldScene extends Phaser.Scene {
 
     updateVehicleVisual() {
         const { x, y, direction, driverId, passengerId } = this.vehicleState;
+        this.carRender.x = Phaser.Math.Linear(this.carRender.x, x, this.isDrivingLocal() ? 0.45 : 0.22);
+        this.carRender.y = Phaser.Math.Linear(this.carRender.y, y, this.isDrivingLocal() ? 0.45 : 0.22);
 
-        this.carBody.setPosition(x, y);
-        this.carTop.setPosition(x, y - 2);
+        this.carBody.setPosition(this.carRender.x, this.carRender.y);
+        this.carTop.setPosition(this.carRender.x, this.carRender.y - 2);
 
         const lightForward = direction === "right" ? 1 : direction === "left" ? -1 : 0;
         const ly = direction === "down" ? 9 : direction === "up" ? -9 : 0;
-        this.carLightL.setPosition(x + lightForward * 30, y + ly - 5);
-        this.carLightR.setPosition(x + lightForward * 30, y + ly + 5);
+        this.carLightL.setPosition(this.carRender.x + lightForward * 30, this.carRender.y + ly - 5);
+        this.carLightR.setPosition(this.carRender.x + lightForward * 30, this.carRender.y + ly + 5);
 
         const occupied = Boolean(driverId || passengerId);
         this.carBody.setFillStyle(occupied ? 0xf1555a : 0xd64045, 1);
@@ -636,6 +667,7 @@ export class WorldScene extends Phaser.Scene {
         const coarse = window.matchMedia("(pointer: coarse)").matches;
         this.hud.showDrivePad(coarse && this.isDrivingLocal());
 
+        const showExit = this.isLocalInVehicle();
         const showDrive = nearCar && !this.vehicleState.driverId && !this.isLocalInVehicle();
         const showSit =
             nearCar &&
@@ -644,8 +676,17 @@ export class WorldScene extends Phaser.Scene {
             this.vehicleState.driverId !== this.socketAdapter.id &&
             !this.isLocalInVehicle();
 
+        this.hud.showAction("exitCar", showExit);
         this.hud.showAction("drive", showDrive);
         this.hud.showAction("sit", showSit);
+
+        const nearHouseDoor = Phaser.Math.Distance.Between(
+            this.localPlayer.sprite.x,
+            this.localPlayer.sprite.y,
+            this.houseDoorPoint.x,
+            this.houseDoorPoint.y
+        ) < 78;
+        this.hud.showAction("openDoor", nearHouseDoor && !this.isLocalInVehicle());
 
         const nearFlower = Phaser.Math.Distance.Between(
             this.localPlayer.sprite.x,
@@ -686,6 +727,8 @@ export class WorldScene extends Phaser.Scene {
     tryDrive() {
         if (!this.vehicleState.driverId) {
             this.socketAdapter.vehicleAction({ action: "drive" });
+            this.carVelocity.x = 0;
+            this.carVelocity.y = 0;
             this.hud.setMission("You are driving. Use arrows or pad. Press X to exit car.");
         }
     }
@@ -694,6 +737,28 @@ export class WorldScene extends Phaser.Scene {
         if (this.vehicleState.driverId && !this.vehicleState.passengerId) {
             this.socketAdapter.vehicleAction({ action: "sit" });
             this.hud.setMission("You are in passenger seat.");
+        }
+    }
+
+    exitCar() {
+        if (this.isLocalInVehicle()) {
+            this.socketAdapter.vehicleAction({ action: "leave" });
+            this.carVelocity.x = 0;
+            this.carVelocity.y = 0;
+            this.hud.setMission("You left the car.");
+        }
+    }
+
+    openDoor() {
+        const nearHouseDoor = Phaser.Math.Distance.Between(
+            this.localPlayer.sprite.x,
+            this.localPlayer.sprite.y,
+            this.houseDoorPoint.x,
+            this.houseDoorPoint.y
+        ) < 78;
+
+        if (nearHouseDoor && !this.isLocalInVehicle()) {
+            this.enterHouse();
         }
     }
 
@@ -720,6 +785,7 @@ export class WorldScene extends Phaser.Scene {
             return;
         }
 
+        this.localPlayer.playGiveFlowerAnimation();
         this.socketAdapter.flowerOffer({ toId: this.giveTargetId });
         this.hud.setMission("Flower offer sent. Waiting for accept.");
     }
@@ -781,12 +847,13 @@ export class WorldScene extends Phaser.Scene {
             inVehicle: isDriver ? "driver" : isPassenger ? "passenger" : ""
         };
 
+        const includePosDelta = !(isDriver || isPassenger);
         const changed =
             !this.lastSentState ||
-            Math.abs(roundedState.x - this.lastSentState.x) > 1 ||
-            Math.abs(roundedState.y - this.lastSentState.y) > 1 ||
-            roundedState.direction !== this.lastSentState.direction ||
-            roundedState.animState !== this.lastSentState.animState ||
+            (includePosDelta && Math.abs(roundedState.x - this.lastSentState.x) > 1) ||
+            (includePosDelta && Math.abs(roundedState.y - this.lastSentState.y) > 1) ||
+            (includePosDelta && roundedState.direction !== this.lastSentState.direction) ||
+            (includePosDelta && roundedState.animState !== this.lastSentState.animState) ||
             roundedState.hasFlower !== this.lastSentState.hasFlower ||
             roundedState.inVehicle !== this.lastSentState.inVehicle;
 
@@ -794,7 +861,8 @@ export class WorldScene extends Phaser.Scene {
             return;
         }
 
-        if (time - this.lastEmitTime < 66) {
+        const minEmitGap = isDriver || isPassenger ? 240 : 66;
+        if (time - this.lastEmitTime < minEmitGap) {
             return;
         }
 
@@ -809,6 +877,15 @@ export class WorldScene extends Phaser.Scene {
 
     isLocalInVehicle() {
         return this.vehicleState.driverId === this.socketAdapter.id || this.vehicleState.passengerId === this.socketAdapter.id;
+    }
+
+    updateCameraTarget() {
+        const followCar = this.isLocalInVehicle();
+        const target = followCar ? this.carBody : this.localPlayer.sprite;
+
+        if (this.cameras.main._follow !== target) {
+            this.cameras.main.startFollow(target, true, 0.14, 0.14);
+        }
     }
 
     createDayNightOverlay() {
@@ -900,6 +977,8 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showDrivePad(false);
         this.hud.showAction("drive", false);
         this.hud.showAction("sit", false);
+        this.hud.showAction("exitCar", false);
+        this.hud.showAction("openDoor", false);
         this.hud.showAction("pickFlower", false);
         this.hud.showAction("giveFlower", false);
         this.hud.showAction("acceptFlower", false);

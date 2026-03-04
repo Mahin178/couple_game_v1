@@ -84,7 +84,6 @@ export class PlayerEntity {
 
     applyAnimation(direction, animState) {
         const dirIndex = Math.max(0, DIRS.indexOf(direction));
-        const row = this.frameOffset / 3 + dirIndex;
 
         if (animState === "walk") {
             const key = `${this.textureKey}-${this.frameOffset}-walk-${direction}`;
@@ -130,6 +129,30 @@ export class PlayerEntity {
                         this.bubble.y = this.sprite.y - 44;
                     }
                 });
+            }
+        });
+    }
+
+    playGiveFlowerAnimation() {
+        const dir = this.lastState.direction || "right";
+        const side = dir === "left" ? -1 : 1;
+        const handX = this.sprite.x + (dir === "up" || dir === "down" ? 8 : side * 13);
+        const handY = this.sprite.y - (dir === "up" ? 10 : 6);
+
+        const petal = this.scene.add.circle(handX, handY, 4, 0xee3e79).setDepth(this.sprite.depth + 5);
+        const stem = this.scene.add.rectangle(handX, handY + 5, 2, 8, 0x2f8a52).setDepth(this.sprite.depth + 4);
+
+        this.scene.tweens.add({
+            targets: [petal, stem],
+            x: handX + side * 12,
+            y: handY - 4,
+            angle: side * 20,
+            alpha: 0,
+            duration: 360,
+            ease: "Cubic.out",
+            onComplete: () => {
+                petal.destroy();
+                stem.destroy();
             }
         });
     }

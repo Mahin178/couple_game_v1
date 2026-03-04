@@ -1,9 +1,10 @@
 function drawBody(ctx, frameX, frameY, bodyColor, direction, phase) {
     const ox = frameX * 32;
     const oy = frameY * 32;
+    const swing = phase === 1 ? -2 : phase === 2 ? 2 : 0;
 
     ctx.fillStyle = "#2f2f2f";
-    const legOffset = phase === 1 ? -2 : phase === 2 ? 2 : 0;
+    const legOffset = swing;
 
     if (direction === "left" || direction === "right") {
         ctx.fillRect(ox + 11, oy + 23 + legOffset, 4, 7);
@@ -15,6 +16,25 @@ function drawBody(ctx, frameX, frameY, bodyColor, direction, phase) {
 
     ctx.fillStyle = bodyColor;
     ctx.fillRect(ox + 8, oy + 11, 16, 13);
+
+    // Arms and hands for a more expressive walk cycle.
+    ctx.fillStyle = bodyColor;
+    if (direction === "left" || direction === "right") {
+        ctx.fillRect(ox + 7, oy + 12 - swing, 3, 8);
+        ctx.fillRect(ox + 22, oy + 12 + swing, 3, 8);
+    } else {
+        ctx.fillRect(ox + 6 + swing, oy + 12, 3, 8);
+        ctx.fillRect(ox + 23 - swing, oy + 12, 3, 8);
+    }
+
+    ctx.fillStyle = "#efc5a4";
+    if (direction === "left" || direction === "right") {
+        ctx.fillRect(ox + 7, oy + 20 - swing, 3, 3);
+        ctx.fillRect(ox + 22, oy + 20 + swing, 3, 3);
+    } else {
+        ctx.fillRect(ox + 6 + swing, oy + 20, 3, 3);
+        ctx.fillRect(ox + 23 - swing, oy + 20, 3, 3);
+    }
 
     ctx.fillStyle = "#efc5a4";
     ctx.fillRect(ox + 10, oy + 4, 12, 9);
