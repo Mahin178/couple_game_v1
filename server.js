@@ -59,6 +59,7 @@ io.on("connection", (socket) => {
 
         player.message = msg.slice(0, 90);
         io.emit("updatePlayers", players);
+        io.emit("chatMessage", { id: socket.id, message: player.message });
 
         setTimeout(() => {
             const p = players[socket.id];
@@ -68,6 +69,7 @@ io.on("connection", (socket) => {
 
             p.message = "";
             io.emit("updatePlayers", players);
+            io.emit("chatClear", { id: socket.id });
         }, 3000);
     });
 

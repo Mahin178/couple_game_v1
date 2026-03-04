@@ -4,6 +4,8 @@ export function createSocketAdapter(socket) {
     socket.on("connect", () => emit("connect", socket.id));
     socket.on("currentPlayers", (players) => emit("players", players));
     socket.on("updatePlayers", (players) => emit("players", players));
+    socket.on("chatMessage", (payload) => emit("chat", payload));
+    socket.on("chatClear", (payload) => emit("chatClear", payload));
 
     function emit(type, payload) {
         const set = listeners.get(type);

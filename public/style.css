@@ -80,24 +80,40 @@ canvas {
     transition: width 300ms ease;
 }
 
-#chatInput {
+#chatForm {
     position: fixed;
     left: 50%;
     transform: translateX(-50%);
     bottom: max(14px, env(safe-area-inset-bottom));
-    width: min(480px, calc(100vw - 24px));
+    width: min(560px, calc(100vw - 24px));
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+}
+
+#chatInput {
+    flex: 1;
     padding: 12px 14px;
     border-radius: 12px;
     border: 1px solid var(--border);
     outline: none;
     background: rgba(0, 0, 0, 0.64);
     color: #fff;
-    pointer-events: auto;
     font-size: 16px;
 }
 
 #chatInput:focus {
     border-color: var(--accent);
+}
+
+#chatSend {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(228, 93, 87, 0.9);
+    color: #fff;
+    padding: 0 16px;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 #mobileJoystick {
@@ -109,6 +125,7 @@ canvas {
     border-radius: 50%;
     display: none;
     pointer-events: auto;
+    touch-action: none;
     border: 2px solid rgba(255, 255, 255, 0.28);
     background: rgba(255, 255, 255, 0.06);
 }
@@ -124,6 +141,7 @@ canvas {
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.55);
+    touch-action: none;
 }
 
 @media (max-width: 860px), (pointer: coarse) {
@@ -138,5 +156,13 @@ canvas {
     #missionBox,
     #loveMeterWrap {
         padding: 8px 10px;
+    }
+
+    #chatForm {
+        left: auto;
+        transform: none;
+        right: 12px;
+        width: min(350px, calc(100vw - 160px));
+        bottom: max(12px, env(safe-area-inset-bottom));
     }
 }

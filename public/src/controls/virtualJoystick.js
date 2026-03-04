@@ -6,12 +6,14 @@ export class VirtualJoystick {
         this.pointerId = null;
         this.center = { x: 0, y: 0 };
         this.maxRadius = root.clientWidth / 2 - knob.clientWidth / 2;
+        this.deadZone = 0.18;
 
         this.bind();
     }
 
     bind() {
         this.root.addEventListener("pointerdown", (event) => {
+            event.preventDefault();
             this.pointerId = event.pointerId;
             this.root.setPointerCapture(this.pointerId);
             this.updateVector(event.clientX, event.clientY);
@@ -21,6 +23,7 @@ export class VirtualJoystick {
             if (event.pointerId !== this.pointerId) {
                 return;
             }
+            event.preventDefault();
             this.updateVector(event.clientX, event.clientY);
         });
 
@@ -53,8 +56,16 @@ export class VirtualJoystick {
             dy = (dy / dist) * this.maxRadius;
         }
 
-        this.vector.x = Phaser.Math.Clamp(dx / this.maxRadius, -1, 1);
-        this.vector.y = Phaser.Math.Clamp(dy / this.maxRadius, -1, 1);
+        let vx = Phaser.Math.Clamp(dx / this.maxRadius, -1, 1);
+        let vy = Phaser.Math.Clamp(dy / this.maxRadius, -1, 1);
+
+        if (Math.hypot(vx, vy) < this.deadZone) {
+            vx = 0;
+            vy = 0;
+        }
+
+        this.vector.x = vx;
+        this.vector.y = vy;
 
         this.knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
     }

@@ -23,6 +23,7 @@ export class WorldScene extends Phaser.Scene {
         this.socketAdapter = socketAdapter;
         this.players = new Map();
         this.playerList = {};
+        this.pendingBubbles = new Map();
         this.lastEmitTime = 0;
         this.lastSentState = null;
     }
@@ -33,6 +34,7 @@ export class WorldScene extends Phaser.Scene {
         this.hud.setLove(35);
 
         this.createMap();
+        this.createWorldDetails();
         this.createInput();
         this.createLocalPlayer();
         this.setupNetworking();
@@ -97,6 +99,71 @@ export class WorldScene extends Phaser.Scene {
         this.cameras.main.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
     }
 
+    createWorldDetails() {
+        const decor = this.add.graphics();
+
+        const drawBuilding = (x, y, w, h, color, doorSide = "bottom") => {
+            decor.fillStyle(color, 1);
+            decor.fillRect(x, y, w, h);
+
+            decor.lineStyle(2, 0x2f241a, 0.9);
+            decor.strokeRect(x, y, w, h);
+
+            decor.fillStyle(0xc7d6e8, 0.9);
+            const windowSize = 18;
+            for (let i = 0; i < 3; i += 1) {
+                const wx = x + 18 + i * 26;
+                const wy = y + 16;
+                if (wx + windowSize < x + w - 8) {
+                    decor.fillRect(wx, wy, windowSize, windowSize);
+                }
+            }
+
+            decor.fillStyle(0x563620, 1);
+            if (doorSide === "bottom") {
+                decor.fillRect(x + w / 2 - 10, y + h - 24, 20, 24);
+            } else if (doorSide === "left") {
+                decor.fillRect(x, y + h / 2 - 10, 24, 20);
+            } else {
+                decor.fillRect(x + w - 24, y + h / 2 - 10, 24, 20);
+            }
+        };
+
+        drawBuilding(8 * TILE_SIZE, 8 * TILE_SIZE, 7 * TILE_SIZE, 5 * TILE_SIZE, 0x7e6b57, "bottom");
+        drawBuilding(30 * TILE_SIZE, 10 * TILE_SIZE, 7 * TILE_SIZE, 7 * TILE_SIZE, 0x6f7e65, "left");
+        drawBuilding(31 * TILE_SIZE, 30 * TILE_SIZE, 5 * TILE_SIZE, 5 * TILE_SIZE, 0x8d7b66, "bottom");
+
+        // House entry marker and door lights.
+        decor.fillStyle(0xffd166, 0.8);
+        decor.fillRect(33 * TILE_SIZE - 16, 35 * TILE_SIZE - 10, 32, 10);
+        decor.fillStyle(0xf8f4ce, 0.65);
+        decor.fillCircle(33 * TILE_SIZE - 8, 35 * TILE_SIZE - 12, 3);
+        decor.fillCircle(33 * TILE_SIZE + 8, 35 * TILE_SIZE - 12, 3);
+
+        // Sidewalk accents and trees for a more lively street.
+        decor.fillStyle(0xcabfab, 0.65);
+        decor.fillRect(0, 21 * TILE_SIZE, WORLD_SIZE, 6);
+        decor.fillRect(0, 25 * TILE_SIZE - 6, WORLD_SIZE, 6);
+        decor.fillRect(21 * TILE_SIZE, 0, 6, WORLD_SIZE);
+        decor.fillRect(25 * TILE_SIZE - 6, 0, 6, WORLD_SIZE);
+
+        const tree = (x, y) => {
+            decor.fillStyle(0x5d3d2b, 1);
+            decor.fillRect(x - 4, y + 8, 8, 18);
+            decor.fillStyle(0x2d8e53, 1);
+            decor.fillCircle(x, y, 16);
+            decor.fillCircle(x - 10, y + 6, 10);
+            decor.fillCircle(x + 10, y + 6, 10);
+        };
+
+        tree(17 * TILE_SIZE, 17 * TILE_SIZE);
+        tree(26 * TILE_SIZE, 17 * TILE_SIZE);
+        tree(17 * TILE_SIZE, 28 * TILE_SIZE);
+        tree(26 * TILE_SIZE, 28 * TILE_SIZE);
+
+        decor.setDepth(600);
+    }
+
     createInput() {
         this.keys = this.input.keyboard.addKeys({
             up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -145,26 +212,41 @@ export class WorldScene extends Phaser.Scene {
             this.syncRemotePlayers();
             this.updateLoveMeter();
         });
+
+        this.unsubChat = this.socketAdapter.on("chat", ({ id, message }) => {
+            if (!id || !message) {
+                return;
+            }
+
+            if (id === this.socketAdapter.id) {
+                this.localPlayer.showChatBubble(message);
+                return;
+            }
+
+            const remote = this.players.get(id);
+            if (remote) {
+                remote.showChatBubble(message);
+            } else {
+                this.pendingBubbles.set(id, message);
+            }
+        });
     }
 
     bindChatInput() {
         this.chatInput = this.hud.chatInput;
+        this.chatForm = this.hud.chatForm;
         this.chatHandler = (event) => {
-            if (event.key !== "Enter") {
-                return;
-            }
-
-            const msg = event.target.value.trim();
+            event.preventDefault();
+            const msg = this.chatInput.value.trim();
             if (!msg) {
                 return;
             }
 
             this.socketAdapter.chat(msg);
-            this.localPlayer.showChatBubble(msg);
-            event.target.value = "";
+            this.chatInput.value = "";
         };
 
-        this.chatInput.addEventListener("keydown", this.chatHandler);
+        this.chatForm.addEventListener("submit", this.chatHandler);
     }
 
     syncRemotePlayers() {
@@ -192,6 +274,12 @@ export class WorldScene extends Phaser.Scene {
 
                 this.players.set(id, entity);
                 this.physics.add.collider(entity.sprite, this.blockLayer);
+
+                const pending = this.pendingBubbles.get(id);
+                if (pending) {
+                    entity.showChatBubble(pending);
+                    this.pendingBubbles.delete(id);
+                }
             }
 
             const remote = this.players.get(id);
@@ -364,9 +452,12 @@ export class WorldScene extends Phaser.Scene {
         if (this.unsubPlayers) {
             this.unsubPlayers();
         }
+        if (this.unsubChat) {
+            this.unsubChat();
+        }
 
-        if (this.chatInput && this.chatHandler) {
-            this.chatInput.removeEventListener("keydown", this.chatHandler);
+        if (this.chatForm && this.chatHandler) {
+            this.chatForm.removeEventListener("submit", this.chatHandler);
         }
 
         for (const p of this.players.values()) {

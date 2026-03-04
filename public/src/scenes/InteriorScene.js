@@ -78,22 +78,20 @@ export class InteriorScene extends Phaser.Scene {
 
     bindChatInput() {
         this.chatInput = this.hud.chatInput;
+        this.chatForm = this.hud.chatForm;
         this.chatHandler = (event) => {
-            if (event.key !== "Enter") {
-                return;
-            }
-
-            const msg = event.target.value.trim();
+            event.preventDefault();
+            const msg = this.chatInput.value.trim();
             if (!msg) {
                 return;
             }
 
             this.socketAdapter.chat(msg);
             this.player.showChatBubble(msg);
-            event.target.value = "";
+            this.chatInput.value = "";
         };
 
-        this.chatInput.addEventListener("keydown", this.chatHandler);
+        this.chatForm.addEventListener("submit", this.chatHandler);
     }
 
     update() {
@@ -127,8 +125,8 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     cleanup() {
-        if (this.chatInput && this.chatHandler) {
-            this.chatInput.removeEventListener("keydown", this.chatHandler);
+        if (this.chatForm && this.chatHandler) {
+            this.chatForm.removeEventListener("submit", this.chatHandler);
         }
 
         if (this.player) {
