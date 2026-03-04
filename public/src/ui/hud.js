@@ -20,6 +20,8 @@ export function createHudControls() {
         left: document.getElementById("driveLeft"),
         right: document.getElementById("driveRight")
     };
+    const gameOverOverlay = document.getElementById("gameOverOverlay");
+    const restartButton = document.getElementById("btnRestartGame");
 
     return {
         chatForm,
@@ -27,6 +29,7 @@ export function createHudControls() {
         emojiButtons,
         buttons,
         drivePad,
+        restartButton,
         setLove(value) {
             const clamped = Math.max(0, Math.min(100, value));
             loveFill.style.width = `${clamped}%`;
@@ -43,6 +46,10 @@ export function createHudControls() {
         },
         showDrivePad(show) {
             drivePad.root.style.display = show ? "block" : "none";
+        },
+        showGameOver(show) {
+            gameOverOverlay.style.display = show ? "flex" : "none";
+            gameOverOverlay.setAttribute("aria-hidden", show ? "false" : "true");
         }
     };
 }

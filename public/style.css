@@ -216,6 +216,43 @@ canvas {
     touch-action: none;
 }
 
+#gameOverOverlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    background: rgba(10, 4, 6, 0.8);
+    z-index: 999;
+}
+
+#gameOverCard {
+    width: min(420px, calc(100vw - 24px));
+    background: rgba(21, 18, 24, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 14px;
+    text-align: center;
+    padding: 22px 18px;
+}
+
+#gameOverCard h2 {
+    margin: 0 0 16px;
+    font-size: 24px;
+    color: #ffd6da;
+}
+
+#btnRestartGame {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: linear-gradient(120deg, #d3485f, #f28a59);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 10px 18px;
+    cursor: pointer;
+}
+
 @media (max-width: 860px), (pointer: coarse) {
     #mobileJoystick {
         display: block;

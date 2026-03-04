@@ -11,16 +11,60 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 const players = {};
-const vehicle = {
-    x: 1400,
-    y: 1450,
-    direction: "right",
-    driverId: null,
-    passengerId: null
+const vehicles = {
+    car_red: {
+        id: "car_red",
+        x: 1400,
+        y: 1450,
+        angle: 0,
+        speed: 0,
+        driverId: null,
+        passengerId: null
+    },
+    car_pink: {
+        id: "car_pink",
+        x: 1530,
+        y: 1520,
+        angle: 0,
+        speed: 0,
+        driverId: null,
+        passengerId: null
+    }
 };
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+}
+
+function vehiclePayload() {
+    return {
+        vehicles: Object.values(vehicles)
+    };
+}
+
+function playerVehicleSeat(socketId) {
+    for (const vehicle of Object.values(vehicles)) {
+        if (vehicle.driverId === socketId) {
+            return { vehicleId: vehicle.id, role: "driver" };
+        }
+        if (vehicle.passengerId === socketId) {
+            return { vehicleId: vehicle.id, role: "passenger" };
+        }
+    }
+
+    return null;
+}
+
+function clearPlayerFromVehicles(socketId) {
+    for (const vehicle of Object.values(vehicles)) {
+        if (vehicle.driverId === socketId) {
+            vehicle.driverId = null;
+            vehicle.speed = 0;
+        }
+        if (vehicle.passengerId === socketId) {
+            vehicle.passengerId = null;
+        }
+    }
 }
 
 io.on("connection", (socket) => {
@@ -44,7 +88,7 @@ io.on("connection", (socket) => {
 
     socket.emit("currentPlayers", players);
     io.emit("updatePlayers", players);
-    socket.emit("vehicleState", vehicle);
+    socket.emit("vehicleState", vehiclePayload());
 
     socket.on("move", (data) => {
         const player = players[socket.id];
@@ -101,55 +145,69 @@ io.on("connection", (socket) => {
             return;
         }
 
-        if (data.action === "drive" && !vehicle.driverId) {
+        const requestedId = typeof data.vehicleId === "string" ? data.vehicleId : "car_red";
+        const vehicle = vehicles[requestedId] || vehicles.car_red;
+        const currentSeat = playerVehicleSeat(socket.id);
+
+        if (data.action === "drive" && vehicle && !vehicle.driverId && (!currentSeat || currentSeat.vehicleId === vehicle.id)) {
+            clearPlayerFromVehicles(socket.id);
             vehicle.driverId = socket.id;
-            player.inVehicle = "driver";
+            player.inVehicle = `${vehicle.id}:driver`;
         }
 
-        if (data.action === "sit" && !vehicle.passengerId && vehicle.driverId !== socket.id) {
+        if (
+            data.action === "sit" &&
+            vehicle &&
+            vehicle.driverId &&
+            !vehicle.passengerId &&
+            vehicle.driverId !== socket.id
+        ) {
+            clearPlayerFromVehicles(socket.id);
             vehicle.passengerId = socket.id;
-            player.inVehicle = "passenger";
+            player.inVehicle = `${vehicle.id}:passenger`;
         }
 
         if (data.action === "leave") {
-            if (vehicle.driverId === socket.id) {
-                vehicle.driverId = null;
-                player.inVehicle = "";
-            }
-            if (vehicle.passengerId === socket.id) {
-                vehicle.passengerId = null;
-                player.inVehicle = "";
-            }
+            clearPlayerFromVehicles(socket.id);
+            player.inVehicle = "";
         }
 
-        io.emit("vehicleState", vehicle);
+        io.emit("vehicleState", vehiclePayload());
         io.emit("updatePlayers", players);
     });
 
     socket.on("driveInput", (data) => {
-        if (vehicle.driverId !== socket.id || !data) {
+        if (!data || typeof data.vehicleId !== "string") {
+            return;
+        }
+
+        const vehicle = vehicles[data.vehicleId];
+        if (!vehicle || vehicle.driverId !== socket.id) {
             return;
         }
 
         vehicle.x = clamp(Number(data.x) || vehicle.x, 80, 2992);
         vehicle.y = clamp(Number(data.y) || vehicle.y, 80, 2992);
-        vehicle.direction = typeof data.direction === "string" ? data.direction : vehicle.direction;
+        vehicle.angle = Number.isFinite(data.angle) ? data.angle : vehicle.angle;
+        vehicle.speed = Number.isFinite(data.speed) ? data.speed : vehicle.speed;
 
         const driver = players[vehicle.driverId];
         if (driver) {
             driver.x = vehicle.x;
             driver.y = vehicle.y;
-            driver.inVehicle = "driver";
+            driver.inVehicle = `${vehicle.id}:driver`;
         }
 
         const passenger = players[vehicle.passengerId];
         if (passenger) {
-            passenger.x = vehicle.x - 24;
-            passenger.y = vehicle.y + 10;
-            passenger.inVehicle = "passenger";
+            const px = vehicle.x - Math.cos(vehicle.angle) * 20 - Math.sin(vehicle.angle) * 16;
+            const py = vehicle.y - Math.sin(vehicle.angle) * 20 + Math.cos(vehicle.angle) * 16;
+            passenger.x = px;
+            passenger.y = py;
+            passenger.inVehicle = `${vehicle.id}:passenger`;
         }
 
-        io.emit("vehicleState", vehicle);
+        io.emit("vehicleState", vehiclePayload());
         io.emit("updatePlayers", players);
     });
 
@@ -188,16 +246,10 @@ io.on("connection", (socket) => {
     });
 
     socket.on("disconnect", () => {
-        if (vehicle.driverId === socket.id) {
-            vehicle.driverId = null;
-        }
-        if (vehicle.passengerId === socket.id) {
-            vehicle.passengerId = null;
-        }
-
+        clearPlayerFromVehicles(socket.id);
         delete players[socket.id];
         io.emit("updatePlayers", players);
-        io.emit("vehicleState", vehicle);
+        io.emit("vehicleState", vehiclePayload());
     });
 });
 
