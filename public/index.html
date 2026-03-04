@@ -1,19 +1,32 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Couple GTA World</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+    <div id="game-root"></div>
 
-<canvas id="gameCanvas"></canvas>
+    <div id="ui-overlay">
+        <div id="topBar">
+            <div id="missionBox">Mission: Meet inside the house</div>
+            <div id="loveMeterWrap">
+                <span>Love</span>
+                <div id="loveMeter"><div id="loveFill"></div></div>
+            </div>
+        </div>
 
-<input id="chatInput" placeholder="Type message..." />
+        <input id="chatInput" placeholder="Say something..." maxlength="90" autocomplete="off" />
 
-<div id="mobileJoystick"></div>
+        <div id="mobileJoystick" aria-hidden="true">
+            <div id="joystickKnob"></div>
+        </div>
+    </div>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="script.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

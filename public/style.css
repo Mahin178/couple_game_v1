@@ -1,24 +1,142 @@
+:root {
+    --bg: #0d1213;
+    --panel: rgba(12, 19, 22, 0.78);
+    --border: rgba(255, 255, 255, 0.2);
+    --text: #f7f7f7;
+    --accent: #e45d57;
+    --accent-2: #ffd166;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html,
 body {
     margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
-    background: black;
+    background:
+        radial-gradient(circle at 15% 20%, rgba(228, 93, 87, 0.2) 0%, transparent 30%),
+        radial-gradient(circle at 85% 80%, rgba(255, 209, 102, 0.16) 0%, transparent 35%),
+        var(--bg);
+    color: var(--text);
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+#game-root,
+canvas {
+    width: 100%;
+    height: 100%;
+}
+
+#ui-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+
+#topBar {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+}
+
+#missionBox,
+#loveMeterWrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    backdrop-filter: blur(5px);
+    font-size: 14px;
+}
+
+#loveMeterWrap {
+    min-width: 140px;
+}
+
+#loveMeter {
+    margin-top: 6px;
+    width: 100%;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#loveFill {
+    height: 100%;
+    width: 35%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 300ms ease;
 }
 
 #chatInput {
     position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: max(14px, env(safe-area-inset-bottom));
+    width: min(480px, calc(100vw - 24px));
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    outline: none;
+    background: rgba(0, 0, 0, 0.64);
+    color: #fff;
+    pointer-events: auto;
     font-size: 16px;
+}
+
+#chatInput:focus {
+    border-color: var(--accent);
 }
 
 #mobileJoystick {
     position: fixed;
-    bottom: 50px;
-    left: 50px;
+    left: 20px;
+    bottom: calc(90px + env(safe-area-inset-bottom));
     width: 120px;
     height: 120px;
-    background: rgba(255,255,255,0.1);
     border-radius: 50%;
     display: none;
+    pointer-events: auto;
+    border: 2px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+#joystickKnob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 54px;
+    height: 54px;
+    margin-left: -27px;
+    margin-top: -27px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+@media (max-width: 860px), (pointer: coarse) {
+    #mobileJoystick {
+        display: block;
+    }
+
+    #topBar {
+        font-size: 12px;
+    }
+
+    #missionBox,
+    #loveMeterWrap {
+        padding: 8px 10px;
+    }
 }
