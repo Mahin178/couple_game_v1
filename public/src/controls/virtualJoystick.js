@@ -5,13 +5,33 @@ export class VirtualJoystick {
         this.vector = { x: 0, y: 0 };
         this.pointerId = null;
         this.center = { x: 0, y: 0 };
-        this.maxRadius = root.clientWidth / 2 - knob.clientWidth / 2;
+        this.maxRadius = 30;
         this.deadZone = 0.18;
 
+        this.recalculate();
+        this.resetKnob();
         this.bind();
     }
 
+    recalculate() {
+        const rootRadius = this.root.clientWidth / 2 || 66;
+        const knobRadius = this.knob.clientWidth / 2 || 29;
+        this.maxRadius = Math.max(18, rootRadius - knobRadius);
+        this.center.x = rootRadius;
+        this.center.y = rootRadius;
+    }
+
+    resetKnob() {
+        this.recalculate();
+        this.knob.style.left = `${this.center.x}px`;
+        this.knob.style.top = `${this.center.y}px`;
+        this.vector.x = 0;
+        this.vector.y = 0;
+    }
+
     bind() {
+        window.addEventListener("resize", () => this.resetKnob());
+
         this.root.addEventListener("pointerdown", (event) => {
             event.preventDefault();
             this.pointerId = event.pointerId;
@@ -33,22 +53,25 @@ export class VirtualJoystick {
             }
 
             this.pointerId = null;
-            this.vector.x = 0;
-            this.vector.y = 0;
-            this.knob.style.transform = "translate(-50%, -50%)";
+            this.resetKnob();
         };
 
         this.root.addEventListener("pointerup", stop);
         this.root.addEventListener("pointercancel", stop);
+        this.root.addEventListener("lostpointercapture", () => {
+            this.pointerId = null;
+            this.resetKnob();
+        });
     }
 
     updateVector(clientX, clientY) {
         const rect = this.root.getBoundingClientRect();
-        this.center.x = rect.left + rect.width / 2;
-        this.center.y = rect.top + rect.height / 2;
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        this.recalculate();
 
-        let dx = clientX - this.center.x;
-        let dy = clientY - this.center.y;
+        let dx = clientX - cx;
+        let dy = clientY - cy;
 
         const dist = Math.hypot(dx, dy);
         if (dist > this.maxRadius && dist > 0) {
@@ -67,7 +90,8 @@ export class VirtualJoystick {
         this.vector.x = vx;
         this.vector.y = vy;
 
-        this.knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        this.knob.style.left = `${this.center.x + dx}px`;
+        this.knob.style.top = `${this.center.y + dy}px`;
     }
 
     getVector() {

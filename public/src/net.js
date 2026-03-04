@@ -6,6 +6,10 @@ export function createSocketAdapter(socket) {
     socket.on("updatePlayers", (players) => emit("players", players));
     socket.on("chatMessage", (payload) => emit("chat", payload));
     socket.on("chatClear", (payload) => emit("chatClear", payload));
+    socket.on("vehicleState", (payload) => emit("vehicleState", payload));
+    socket.on("flowerOffer", (payload) => emit("flowerOffer", payload));
+    socket.on("flowerResponse", (payload) => emit("flowerResponse", payload));
+    socket.on("loveBoost", (payload) => emit("loveBoost", payload));
 
     function emit(type, payload) {
         const set = listeners.get(type);
@@ -36,6 +40,18 @@ export function createSocketAdapter(socket) {
         },
         chat(message) {
             socket.emit("chat", message);
+        },
+        vehicleAction(data) {
+            socket.emit("vehicleAction", data);
+        },
+        driveInput(data) {
+            socket.emit("driveInput", data);
+        },
+        flowerOffer(data) {
+            socket.emit("flowerOffer", data);
+        },
+        flowerResponse(data) {
+            socket.emit("flowerResponse", data);
         }
     };
 }

@@ -18,6 +18,22 @@
             </div>
         </div>
 
+        <div id="interactionPanel">
+            <button id="btnDrive" class="actionBtn">Drive</button>
+            <button id="btnSit" class="actionBtn">Sit</button>
+            <button id="btnPickFlower" class="actionBtn">Pick Flower</button>
+            <button id="btnGiveFlower" class="actionBtn">Give Flower</button>
+            <button id="btnAcceptFlower" class="actionBtn">Accept Flower</button>
+        </div>
+
+        <div id="emojiBar">
+            <button class="emojiBtn" data-emoji="❤️">❤️</button>
+            <button class="emojiBtn" data-emoji="😂">😂</button>
+            <button class="emojiBtn" data-emoji="😍">😍</button>
+            <button class="emojiBtn" data-emoji="😎">😎</button>
+            <button class="emojiBtn" data-emoji="😢">😢</button>
+        </div>
+
         <form id="chatForm" autocomplete="off">
             <input id="chatInput" placeholder="Say something..." maxlength="90" />
             <button id="chatSend" type="submit">Send</button>
@@ -25,6 +41,15 @@
 
         <div id="mobileJoystick" aria-hidden="true">
             <div id="joystickKnob"></div>
+        </div>
+
+        <div id="drivePad" aria-hidden="true">
+            <button id="driveUp" class="driveBtn">↑</button>
+            <div class="driveRow">
+                <button id="driveLeft" class="driveBtn">←</button>
+                <button id="driveRight" class="driveBtn">→</button>
+            </div>
+            <button id="driveDown" class="driveBtn">↓</button>
         </div>
     </div>
 

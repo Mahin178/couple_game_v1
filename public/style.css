@@ -91,6 +91,53 @@ canvas {
     pointer-events: auto;
 }
 
+#interactionPanel {
+    position: fixed;
+    left: 50%;
+    top: 72px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: min(640px, calc(100vw - 20px));
+}
+
+.actionBtn {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(17, 28, 31, 0.82);
+    color: #fff;
+    padding: 8px 12px;
+    font-weight: 700;
+    display: none;
+    touch-action: manipulation;
+}
+
+#emojiBar {
+    position: fixed;
+    right: 12px;
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+    background: rgba(5, 9, 10, 0.52);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+}
+
+.emojiBtn {
+    border: 0;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-radius: 8px;
+    padding: 4px 7px;
+    font-size: 18px;
+    line-height: 1;
+}
+
 #chatInput {
     flex: 1;
     padding: 12px 14px;
@@ -118,10 +165,10 @@ canvas {
 
 #mobileJoystick {
     position: fixed;
-    left: 20px;
+    left: 16px;
     bottom: calc(90px + env(safe-area-inset-bottom));
-    width: 120px;
-    height: 120px;
+    width: 132px;
+    height: 132px;
     border-radius: 50%;
     display: none;
     pointer-events: auto;
@@ -132,15 +179,40 @@ canvas {
 
 #joystickKnob {
     position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 54px;
-    height: 54px;
-    margin-left: -27px;
-    margin-top: -27px;
+    left: 66px;
+    top: 66px;
+    width: 58px;
+    height: 58px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.55);
+    touch-action: none;
+}
+
+#drivePad {
+    position: fixed;
+    right: 16px;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    display: none;
+    pointer-events: auto;
+    user-select: none;
+}
+
+.driveRow {
+    display: flex;
+    justify-content: space-between;
+}
+
+.driveBtn {
+    width: 54px;
+    height: 54px;
+    margin: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(8, 16, 20, 0.78);
+    color: #fff;
+    font-size: 24px;
+    font-weight: 700;
     touch-action: none;
 }
 
@@ -162,7 +234,20 @@ canvas {
         left: auto;
         transform: none;
         right: 12px;
-        width: min(350px, calc(100vw - 160px));
+        width: min(360px, calc(100vw - 170px));
         bottom: max(12px, env(safe-area-inset-bottom));
+    }
+
+    #emojiBar {
+        right: 12px;
+        bottom: calc(62px + env(safe-area-inset-bottom));
+        max-width: calc(100vw - 180px);
+        overflow-x: auto;
+    }
+
+    #interactionPanel {
+        top: 62px;
+        left: 50%;
+        transform: translateX(-50%);
     }
 }

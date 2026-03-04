@@ -19,6 +19,12 @@ export class InteriorScene extends Phaser.Scene {
 
         this.hud = createHudControls();
         this.hud.setMission("Explore the house and walk to the exit");
+        this.hud.showDrivePad(false);
+        this.hud.showAction("drive", false);
+        this.hud.showAction("sit", false);
+        this.hud.showAction("pickFlower", false);
+        this.hud.showAction("giveFlower", false);
+        this.hud.showAction("acceptFlower", false);
 
         this.createRoom();
         this.createPlayer();
