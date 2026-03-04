@@ -65,6 +65,7 @@ export class WorldScene extends Phaser.Scene {
         this.giveTargetId = null;
         this.loveBonus = 0;
         this.isGameOver = false;
+        this.isTransitioning = false;
     }
 
     create() {
@@ -599,6 +600,14 @@ export class WorldScene extends Phaser.Scene {
     update(time, delta) {
         const dt = delta / 1000;
         this.localPlayer.setHasFlower(this.localHasFlower);
+
+        if (this.isTransitioning) {
+            this.updateVehicleVisual();
+            this.updateVillains(dt);
+            this.updateFlowerVisual();
+            this.updateDayNight(time);
+            return;
+        }
 
         if (!this.isGameOver) {
             if (this.getDrivingVehicleId()) {
@@ -1145,7 +1154,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     openDoor() {
-        if (this.isGameOver) {
+        if (this.isGameOver || this.isTransitioning) {
             return;
         }
 
@@ -1311,15 +1320,22 @@ export class WorldScene extends Phaser.Scene {
     }
 
     enterHouse(door) {
-        if (!door) {
+        if (!door || this.isTransitioning) {
             return;
         }
 
-        this.scene.start("InteriorScene", {
-            returnX: door.returnX,
-            returnY: door.returnY,
-            buildingId: door.id,
-            theme: door.interiorTheme
+        this.isTransitioning = true;
+        this.localPlayer.setVelocity(0, 0);
+        this.hud.showAction("openDoor", false);
+        this.hud.setMission("Entering building...");
+
+        this.time.delayedCall(120, () => {
+            this.scene.start("InteriorScene", {
+                returnX: door.returnX,
+                returnY: door.returnY,
+                buildingId: door.id,
+                theme: door.interiorTheme
+            });
         });
     }
 
@@ -1373,6 +1389,7 @@ export class WorldScene extends Phaser.Scene {
 
         this.hud.showDrivePad(false);
         this.hud.showGameOver(false);
+        this.isTransitioning = false;
         for (const name of Object.keys(this.hud.buttons)) {
             this.hud.showAction(name, false);
         }

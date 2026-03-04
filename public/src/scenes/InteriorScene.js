@@ -12,12 +12,13 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     create(data) {
+        this.isTransitioning = false;
         this.returnPos = {
             x: data?.returnX || 500,
             y: data?.returnY || 500
         };
-        this.interiorTheme = data?.theme || "warm";
-        this.buildingId = data?.buildingId || "home_a";
+        this.interiorTheme = typeof data?.theme === "string" ? data.theme : "warm";
+        this.buildingId = typeof data?.buildingId === "string" ? data.buildingId : "home_a";
         this.exitReadyAt = this.time.now + 650;
 
         this.hud = createHudControls();
@@ -142,6 +143,12 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     leaveHouse() {
+        if (this.isTransitioning) {
+            return;
+        }
+
+        this.isTransitioning = true;
+        this.player.setVelocity(0, 0);
         this.scene.start("WorldScene", {
             spawn: this.returnPos
         });
