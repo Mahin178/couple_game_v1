@@ -10,6 +10,8 @@ export function createSocketAdapter(socket) {
     socket.on("flowerOffer", (payload) => emit("flowerOffer", payload));
     socket.on("flowerResponse", (payload) => emit("flowerResponse", payload));
     socket.on("loveBoost", (payload) => emit("loveBoost", payload));
+    socket.on("buildState", (payload) => emit("buildState", payload));
+    socket.on("buildPatch", (payload) => emit("buildPatch", payload));
 
     function emit(type, payload) {
         const set = listeners.get(type);
@@ -52,6 +54,9 @@ export function createSocketAdapter(socket) {
         },
         flowerResponse(data) {
             socket.emit("flowerResponse", data);
+        },
+        buildAction(data) {
+            socket.emit("buildAction", data);
         }
     };
 }

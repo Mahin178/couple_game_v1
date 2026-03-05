@@ -11,8 +11,14 @@ export function createHudControls() {
         openDoor: document.getElementById("btnOpenDoor"),
         pickFlower: document.getElementById("btnPickFlower"),
         giveFlower: document.getElementById("btnGiveFlower"),
-        acceptFlower: document.getElementById("btnAcceptFlower")
+        acceptFlower: document.getElementById("btnAcceptFlower"),
+        buildMode: document.getElementById("btnBuildMode"),
+        grabMaterial: document.getElementById("btnGrabMaterial"),
+        placeBlock: document.getElementById("btnPlaceBlock"),
+        removeBlock: document.getElementById("btnRemoveBlock"),
+        cycleMaterial: document.getElementById("btnCycleMaterial")
     };
+    const buildInfo = document.getElementById("buildInfo");
     const drivePad = {
         root: document.getElementById("drivePad"),
         up: document.getElementById("driveUp"),
@@ -30,6 +36,7 @@ export function createHudControls() {
         buttons,
         drivePad,
         restartButton,
+        buildInfo,
         setLove(value) {
             const clamped = Math.max(0, Math.min(100, value));
             loveFill.style.width = `${clamped}%`;
@@ -50,6 +57,16 @@ export function createHudControls() {
         showGameOver(show) {
             gameOverOverlay.style.display = show ? "flex" : "none";
             gameOverOverlay.setAttribute("aria-hidden", show ? "false" : "true");
+        },
+        setBuildInfo(text) {
+            if (buildInfo) {
+                buildInfo.textContent = text;
+            }
+        },
+        setBuildButtonLabel(text) {
+            if (buttons.cycleMaterial) {
+                buttons.cycleMaterial.textContent = text;
+            }
         }
     };
 }

@@ -10,6 +10,12 @@ const CAR_BRAKE = 760;
 const CAR_MAX_FORWARD = 440;
 const CAR_MAX_REVERSE = -190;
 const DIRECTIONS = ["down", "left", "right", "up"];
+const MATERIAL_ORDER = ["brick", "wood", "glass"];
+const MATERIAL_STYLE = {
+    brick: { fill: 0xa54f3c, stroke: 0x6e2d21, preview: 0xbd6d58 },
+    wood: { fill: 0x8a633b, stroke: 0x5a3d22, preview: 0xb48557 },
+    glass: { fill: 0x8bcde0, stroke: 0x4b7f92, preview: 0xa8dced, alpha: 0.62 }
+};
 
 const CAR_CONFIG = [
     { id: "car_red", body: 0xd64045, roof: 0xf0e7d8 },
@@ -70,16 +76,27 @@ export class WorldScene extends Phaser.Scene {
         this.isGameOver = false;
         this.isInInterior = false;
         this.currentInterior = null;
+        this.buildBlocks = new Map();
+        this.buildBlockColliders = null;
+        this.materialDepots = [];
+        this.inventory = { brick: 0, wood: 0, glass: 0 };
+        this.selectedMaterial = "brick";
+        this.isBuildMode = false;
+        this.buildTarget = null;
+        this.unsubBuildState = null;
+        this.unsubBuildPatch = null;
+        this.pointerPlaceHandler = null;
     }
 
     create() {
         this.hud = createHudControls();
         this.hud.showGameOver(false);
-        this.hud.setMission("Explore, drive, and avoid villains");
+        this.hud.setMission("Collect brick/wood/glass and build your first house");
         this.hud.setLove(35);
 
         this.createMap();
         this.createWorldDetails();
+        this.createBuildSystem();
         this.createInteriorDistrict();
         this.createVehicles();
         this.createVillains();
@@ -137,8 +154,7 @@ export class WorldScene extends Phaser.Scene {
             { id: "home_b", tx: 30, ty: 10, tw: 7, th: 7, type: 2, wall: 0x6f7e65, roof: 0x859179, doorSide: "left", theme: "mint" },
             { id: "home_c", tx: 31, ty: 30, tw: 5, th: 5, type: 3, wall: 0x8d7b66, roof: 0xa28f79, doorSide: "bottom", theme: "sunset" },
             { id: "home_d", tx: 12, ty: 38, tw: 6, th: 5, type: 2, wall: 0x69748d, roof: 0x7f8aa4, doorSide: "bottom", theme: "mint" },
-            { id: "home_e", tx: 46, ty: 12, tw: 6, th: 5, type: 3, wall: 0x8b6f6f, roof: 0xa38484, doorSide: "right", theme: "sunset" },
-            { id: "home_f", tx: 50, ty: 33, tw: 8, th: 6, type: 2, wall: 0x6e7b68, roof: 0x879483, doorSide: "bottom", theme: "warm" }
+            { id: "home_e", tx: 46, ty: 12, tw: 6, th: 5, type: 3, wall: 0x8b6f6f, roof: 0xa38484, doorSide: "right", theme: "sunset" }
         ];
 
         for (const b of this.buildings) {
@@ -261,7 +277,57 @@ export class WorldScene extends Phaser.Scene {
             tree(tx * TILE_SIZE, ty * TILE_SIZE);
         }
 
+        this.drawBuildYard(decor);
+
         decor.setDepth(600);
+    }
+
+    drawBuildYard(decor) {
+        const startX = 49 * TILE_SIZE;
+        const startY = 32 * TILE_SIZE;
+        const yardW = 10 * TILE_SIZE;
+        const yardH = 8 * TILE_SIZE;
+        decor.fillStyle(0x304028, 0.35);
+        decor.fillRoundedRect(startX, startY, yardW, yardH, 18);
+        decor.lineStyle(4, 0x8ea96b, 0.65);
+        decor.strokeRoundedRect(startX + 2, startY + 2, yardW - 4, yardH - 4, 16);
+    }
+
+    createBuildSystem() {
+        this.buildBlockColliders = this.physics.add.staticGroup();
+
+        this.materialDepots = [
+            { material: "brick", gridX: 50, gridY: 33 },
+            { material: "wood", gridX: 52, gridY: 33 },
+            { material: "glass", gridX: 54, gridY: 33 }
+        ];
+
+        for (const depot of this.materialDepots) {
+            const style = MATERIAL_STYLE[depot.material];
+            const cx = depot.gridX * TILE_SIZE + TILE_SIZE / 2;
+            const cy = depot.gridY * TILE_SIZE + TILE_SIZE / 2;
+            const base = this.add.rectangle(cx, cy, 48, 48, style.fill, 0.95).setDepth(910);
+            base.setStrokeStyle(3, style.stroke, 1);
+            const cap = this.add.rectangle(cx, cy - 10, 48, 10, 0xf5e6ca, 0.9).setDepth(911);
+            const label = this.add
+                .text(cx, cy + 4, depot.material[0].toUpperCase(), {
+                    fontFamily: "\"Trebuchet MS\", sans-serif",
+                    fontSize: "18px",
+                    color: "#1d1814"
+                })
+                .setOrigin(0.5)
+                .setDepth(912);
+
+            depot.visuals = [base, cap, label];
+            depot.x = cx;
+            depot.y = cy;
+        }
+
+        this.buildPreview = this.add.rectangle(0, 0, TILE_SIZE - 6, TILE_SIZE - 6, 0xbd6d58, 0.24).setDepth(2110).setVisible(false);
+        this.buildPreview.setStrokeStyle(2, 0xfefefe, 0.7);
+        this.crosshairH = this.add.rectangle(0, 0, 22, 2, 0xfefefe, 0.9).setDepth(2111).setVisible(false);
+        this.crosshairV = this.add.rectangle(0, 0, 2, 22, 0xfefefe, 0.9).setDepth(2111).setVisible(false);
+        this.updateBuildInfoText();
     }
 
     createInteriorDistrict() {
@@ -271,8 +337,7 @@ export class WorldScene extends Phaser.Scene {
             { id: "home_b", x: 4020, y: 300, w: 440, h: 320 },
             { id: "home_c", x: 3520, y: 700, w: 440, h: 320 },
             { id: "home_d", x: 4020, y: 700, w: 440, h: 320 },
-            { id: "home_e", x: 3520, y: 1100, w: 440, h: 320 },
-            { id: "home_f", x: 4020, y: 1100, w: 440, h: 320 }
+            { id: "home_e", x: 3520, y: 1100, w: 440, h: 320 }
         ];
 
         for (const room of baseRooms) {
@@ -397,7 +462,13 @@ export class WorldScene extends Phaser.Scene {
             down: Phaser.Input.Keyboard.KeyCodes.DOWN,
             left: Phaser.Input.Keyboard.KeyCodes.LEFT,
             right: Phaser.Input.Keyboard.KeyCodes.RIGHT,
-            exitCar: Phaser.Input.Keyboard.KeyCodes.X
+            exitCar: Phaser.Input.Keyboard.KeyCodes.X,
+            buildMode: Phaser.Input.Keyboard.KeyCodes.B,
+            placeBlock: Phaser.Input.Keyboard.KeyCodes.F,
+            removeBlock: Phaser.Input.Keyboard.KeyCodes.G,
+            matBrick: Phaser.Input.Keyboard.KeyCodes.ONE,
+            matWood: Phaser.Input.Keyboard.KeyCodes.TWO,
+            matGlass: Phaser.Input.Keyboard.KeyCodes.THREE
         });
 
         const isTouch = window.matchMedia("(pointer: coarse)").matches;
@@ -406,6 +477,25 @@ export class WorldScene extends Phaser.Scene {
             const knob = document.getElementById("joystickKnob");
             this.joystick = new VirtualJoystick(root, knob);
         }
+
+        this.pointerPlaceHandler = (pointer) => {
+            if (this.isGameOver || !this.isBuildMode || this.isInInterior || this.isLocalInVehicle()) {
+                return;
+            }
+
+            const inCanvas = pointer?.event?.target?.tagName === "CANVAS";
+            if (!inCanvas) {
+                return;
+            }
+
+            if (pointer.rightButtonDown()) {
+                this.tryRemoveBlock();
+                return;
+            }
+
+            this.tryPlaceBlock();
+        };
+        this.input.on("pointerdown", this.pointerPlaceHandler);
     }
 
     createLocalPlayer() {
@@ -413,6 +503,9 @@ export class WorldScene extends Phaser.Scene {
         this.localPlayer = new PlayerEntity(this, spawn.x, spawn.y, "player", 0, "local", "You", true);
         this.physics.add.collider(this.localPlayer.sprite, this.blockLayer);
         this.physics.add.collider(this.localPlayer.sprite, this.interiorWalls);
+        if (this.buildBlockColliders) {
+            this.physics.add.collider(this.localPlayer.sprite, this.buildBlockColliders);
+        }
         this.cameras.main.startFollow(this.localPlayer.sprite, true, 0.16, 0.16);
     }
 
@@ -500,6 +593,24 @@ export class WorldScene extends Phaser.Scene {
         this.unsubLoveBoost = this.socketAdapter.on("loveBoost", ({ amount }) => {
             this.loveBonus = clamp(this.loveBonus + (Number(amount) || 0), 0, 45);
         });
+
+        this.unsubBuildState = this.socketAdapter.on("buildState", (payload) => {
+            this.replaceBuildState(Array.isArray(payload?.blocks) ? payload.blocks : []);
+        });
+
+        this.unsubBuildPatch = this.socketAdapter.on("buildPatch", (payload) => {
+            if (!payload || typeof payload.action !== "string") {
+                return;
+            }
+
+            if (payload.action === "place" && payload.block) {
+                this.upsertBuildBlock(payload.block);
+            }
+
+            if (payload.action === "remove") {
+                this.removeBuildBlock(payload.gridX, payload.gridY);
+            }
+        });
     }
 
     bindChatInput() {
@@ -553,6 +664,11 @@ export class WorldScene extends Phaser.Scene {
         bind("pickFlower", () => this.pickFlower());
         bind("giveFlower", () => this.offerFlower());
         bind("acceptFlower", () => this.acceptFlower());
+        bind("buildMode", () => this.toggleBuildMode());
+        bind("grabMaterial", () => this.grabMaterial());
+        bind("placeBlock", () => this.tryPlaceBlock());
+        bind("removeBlock", () => this.tryRemoveBlock());
+        bind("cycleMaterial", () => this.cycleMaterial());
     }
 
     bindDrivePadButtons() {
@@ -619,6 +735,9 @@ export class WorldScene extends Phaser.Scene {
                 this.players.set(id, entity);
                 this.physics.add.collider(entity.sprite, this.blockLayer);
                 this.physics.add.collider(entity.sprite, this.interiorWalls);
+                if (this.buildBlockColliders) {
+                    this.physics.add.collider(entity.sprite, this.buildBlockColliders);
+                }
 
                 const pending = this.pendingBubbles.get(id);
                 if (pending) {
@@ -657,6 +776,25 @@ export class WorldScene extends Phaser.Scene {
         const dt = delta / 1000;
         this.localPlayer.setHasFlower(this.localHasFlower);
 
+        if (Phaser.Input.Keyboard.JustDown(this.keys.buildMode) && !this.isGameOver && !this.isInInterior) {
+            this.toggleBuildMode();
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.keys.placeBlock)) {
+            this.tryPlaceBlock();
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.keys.removeBlock)) {
+            this.tryRemoveBlock();
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.keys.matBrick)) {
+            this.setMaterial("brick");
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.keys.matWood)) {
+            this.setMaterial("wood");
+        }
+        if (Phaser.Input.Keyboard.JustDown(this.keys.matGlass)) {
+            this.setMaterial("glass");
+        }
+
         if (!this.isGameOver) {
             if (this.getDrivingVehicleId()) {
                 this.updateDrivingMovement(dt, time);
@@ -673,6 +811,7 @@ export class WorldScene extends Phaser.Scene {
         this.updateVehicleVisual();
         this.updateVillains(dt);
         this.updateFlowerVisual();
+        this.updateBuildPreview();
         this.updateInteractionButtons();
         this.updateCameraTarget();
         this.updatePlayerIndicator(time);
@@ -756,6 +895,14 @@ export class WorldScene extends Phaser.Scene {
     carHitsBuilding(x, y) {
         for (const r of this.buildingRects) {
             if (x > r.x - 34 && x < r.x + r.w + 34 && y > r.y - 24 && y < r.y + r.h + 24) {
+                return true;
+            }
+        }
+
+        for (const block of this.buildBlocks.values()) {
+            const bx = block.gridX * TILE_SIZE;
+            const by = block.gridY * TILE_SIZE;
+            if (x > bx - 36 && x < bx + TILE_SIZE + 36 && y > by - 28 && y < by + TILE_SIZE + 28) {
                 return true;
             }
         }
@@ -1152,6 +1299,7 @@ export class WorldScene extends Phaser.Scene {
     updateInteractionButtons() {
         if (this.isGameOver) {
             this.hud.showDrivePad(false);
+            this.updateBuildInfoText();
             return;
         }
 
@@ -1169,6 +1317,12 @@ export class WorldScene extends Phaser.Scene {
             this.hud.showAction("pickFlower", false);
             this.hud.showAction("giveFlower", false);
             this.hud.showAction("acceptFlower", false);
+            this.hud.showAction("buildMode", false);
+            this.hud.showAction("grabMaterial", false);
+            this.hud.showAction("placeBlock", false);
+            this.hud.showAction("removeBlock", false);
+            this.hud.showAction("cycleMaterial", false);
+            this.updateBuildInfoText();
             return;
         }
 
@@ -1194,9 +1348,19 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showAction("giveFlower", Boolean(targetId) && this.localHasFlower && !seat);
         this.hud.showAction("acceptFlower", Boolean(this.pendingFlowerOfferFrom));
 
+        const nearDepot = Boolean(this.getNearestDepot(90));
+        const canBuild = !seat && !this.isInInterior;
+        this.hud.showAction("buildMode", canBuild);
+        this.hud.showAction("grabMaterial", canBuild && nearDepot);
+        this.hud.showAction("placeBlock", canBuild && this.isBuildMode);
+        this.hud.showAction("removeBlock", canBuild && this.isBuildMode);
+        this.hud.showAction("cycleMaterial", canBuild && this.isBuildMode);
+
         if (coarse && this.getDrivingVehicleId()) {
             this.hud.setMission("Use joystick to drive the car");
         }
+
+        this.updateBuildInfoText();
     }
 
     findNearbyPlayerId(maxDistance) {
@@ -1350,6 +1514,275 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showAction("acceptFlower", false);
     }
 
+    getNearestDepot(maxDistance) {
+        let nearest = null;
+        let nearestDist = maxDistance;
+
+        for (const depot of this.materialDepots) {
+            const dist = Phaser.Math.Distance.Between(this.localPlayer.sprite.x, this.localPlayer.sprite.y, depot.x, depot.y);
+            if (dist < nearestDist) {
+                nearest = depot;
+                nearestDist = dist;
+            }
+        }
+
+        return nearest;
+    }
+
+    toggleBuildMode() {
+        if (this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
+            return;
+        }
+
+        this.isBuildMode = !this.isBuildMode;
+        this.hud.setMission(this.isBuildMode ? "Build mode on. Place your first house blocks." : "Build mode off.");
+        this.updateBuildInfoText();
+    }
+
+    cycleMaterial() {
+        const index = MATERIAL_ORDER.indexOf(this.selectedMaterial);
+        const next = MATERIAL_ORDER[(index + 1) % MATERIAL_ORDER.length];
+        this.setMaterial(next);
+    }
+
+    setMaterial(material) {
+        if (!MATERIAL_STYLE[material]) {
+            return;
+        }
+
+        this.selectedMaterial = material;
+        this.updateBuildInfoText();
+    }
+
+    grabMaterial() {
+        if (this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
+            return;
+        }
+
+        const depot = this.getNearestDepot(90);
+        if (!depot) {
+            return;
+        }
+
+        this.inventory[depot.material] = clamp((this.inventory[depot.material] || 0) + 6, 0, 999);
+        this.selectedMaterial = depot.material;
+        this.hud.setMission(`Collected ${depot.material}. Inventory updated.`);
+        this.updateBuildInfoText();
+    }
+
+    getBlockKey(gridX, gridY) {
+        return `${gridX}:${gridY}`;
+    }
+
+    getBuildTargetFromPointer() {
+        const pointer = this.input.activePointer;
+        const worldX = pointer.worldX;
+        const worldY = pointer.worldY;
+        if (!Number.isFinite(worldX) || !Number.isFinite(worldY)) {
+            return null;
+        }
+
+        const maxGrid = Math.floor(WORLD_SIZE / TILE_SIZE) - 1;
+        const gridX = clamp(Math.floor(worldX / TILE_SIZE), 0, maxGrid);
+        const gridY = clamp(Math.floor(worldY / TILE_SIZE), 0, maxGrid);
+        const x = gridX * TILE_SIZE + TILE_SIZE / 2;
+        const y = gridY * TILE_SIZE + TILE_SIZE / 2;
+        return { gridX, gridY, x, y };
+    }
+
+    canReachBuildCell(gridX, gridY) {
+        const x = gridX * TILE_SIZE + TILE_SIZE / 2;
+        const y = gridY * TILE_SIZE + TILE_SIZE / 2;
+        const dist = Phaser.Math.Distance.Between(this.localPlayer.sprite.x, this.localPlayer.sprite.y, x, y);
+        return dist < 190;
+    }
+
+    canPlaceAt(gridX, gridY) {
+        if (!this.canReachBuildCell(gridX, gridY)) {
+            return false;
+        }
+
+        if ((this.inventory[this.selectedMaterial] || 0) <= 0) {
+            return false;
+        }
+
+        const key = this.getBlockKey(gridX, gridY);
+        if (this.buildBlocks.has(key)) {
+            return false;
+        }
+
+        const cx = gridX * TILE_SIZE + TILE_SIZE / 2;
+        const cy = gridY * TILE_SIZE + TILE_SIZE / 2;
+        if (Phaser.Math.Distance.Between(this.localPlayer.sprite.x, this.localPlayer.sprite.y, cx, cy) < 26) {
+            return false;
+        }
+
+        for (const depot of this.materialDepots) {
+            if (depot.gridX === gridX && depot.gridY === gridY) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    updateBuildPreview() {
+        if (!this.isBuildMode || this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
+            this.buildTarget = null;
+            this.buildPreview?.setVisible(false);
+            this.crosshairH?.setVisible(false);
+            this.crosshairV?.setVisible(false);
+            return;
+        }
+
+        const target = this.getBuildTargetFromPointer();
+        if (!target) {
+            this.buildTarget = null;
+            this.buildPreview?.setVisible(false);
+            this.crosshairH?.setVisible(false);
+            this.crosshairV?.setVisible(false);
+            return;
+        }
+
+        this.buildTarget = target;
+        const valid = this.canPlaceAt(target.gridX, target.gridY);
+        const style = MATERIAL_STYLE[this.selectedMaterial];
+
+        this.buildPreview.setPosition(target.x, target.y).setVisible(true);
+        this.buildPreview.setFillStyle(valid ? style.preview : 0xcc3d47, valid ? 0.24 : 0.26);
+        this.buildPreview.setStrokeStyle(2, valid ? 0xf8f8f8 : 0xffd5d5, 0.88);
+        this.crosshairH.setPosition(target.x, target.y).setVisible(true);
+        this.crosshairV.setPosition(target.x, target.y).setVisible(true);
+    }
+
+    tryPlaceBlock() {
+        if (!this.isBuildMode || this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
+            return;
+        }
+
+        const target = this.buildTarget || this.getBuildTargetFromPointer();
+        if (!target || !this.canPlaceAt(target.gridX, target.gridY)) {
+            return;
+        }
+
+        this.inventory[this.selectedMaterial] = Math.max(0, (this.inventory[this.selectedMaterial] || 0) - 1);
+        this.socketAdapter.buildAction({
+            action: "place",
+            gridX: target.gridX,
+            gridY: target.gridY,
+            material: this.selectedMaterial
+        });
+        this.updateBuildInfoText();
+    }
+
+    tryRemoveBlock() {
+        if (!this.isBuildMode || this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
+            return;
+        }
+
+        const target = this.buildTarget || this.getBuildTargetFromPointer();
+        if (!target || !this.canReachBuildCell(target.gridX, target.gridY)) {
+            return;
+        }
+
+        const key = this.getBlockKey(target.gridX, target.gridY);
+        const existing = this.buildBlocks.get(key);
+        if (!existing) {
+            return;
+        }
+
+        this.inventory[existing.material] = clamp((this.inventory[existing.material] || 0) + 1, 0, 999);
+        this.socketAdapter.buildAction({
+            action: "remove",
+            gridX: target.gridX,
+            gridY: target.gridY
+        });
+        this.updateBuildInfoText();
+    }
+
+    replaceBuildState(blocks) {
+        const keep = new Set();
+
+        for (const block of blocks) {
+            const gridX = Math.floor(Number(block?.gridX));
+            const gridY = Math.floor(Number(block?.gridY));
+            const material = typeof block?.material === "string" ? block.material : "";
+            if (!Number.isFinite(gridX) || !Number.isFinite(gridY) || !MATERIAL_STYLE[material]) {
+                continue;
+            }
+
+            const key = this.getBlockKey(gridX, gridY);
+            keep.add(key);
+            this.upsertBuildBlock({ gridX, gridY, material });
+        }
+
+        for (const key of Array.from(this.buildBlocks.keys())) {
+            if (!keep.has(key)) {
+                const [gx, gy] = key.split(":").map((v) => Number(v));
+                this.removeBuildBlock(gx, gy);
+            }
+        }
+    }
+
+    upsertBuildBlock(block) {
+        const gridX = Math.floor(Number(block?.gridX));
+        const gridY = Math.floor(Number(block?.gridY));
+        const material = typeof block?.material === "string" ? block.material : "";
+        if (!Number.isFinite(gridX) || !Number.isFinite(gridY) || !MATERIAL_STYLE[material]) {
+            return;
+        }
+
+        const key = this.getBlockKey(gridX, gridY);
+        const existing = this.buildBlocks.get(key);
+        if (existing && existing.material === material) {
+            return;
+        }
+
+        if (existing) {
+            existing.visual?.destroy();
+            existing.collider?.destroy();
+        }
+
+        const style = MATERIAL_STYLE[material];
+        const x = gridX * TILE_SIZE + TILE_SIZE / 2;
+        const y = gridY * TILE_SIZE + TILE_SIZE / 2;
+        const visual = this.add.rectangle(x, y, TILE_SIZE - 8, TILE_SIZE - 8, style.fill, style.alpha || 0.96).setDepth(930 + y);
+        visual.setStrokeStyle(2, style.stroke, 1);
+        const collider = this.add.rectangle(x, y, TILE_SIZE - 10, TILE_SIZE - 10, 0x000000, 0);
+        this.physics.add.existing(collider, true);
+        this.buildBlockColliders?.add(collider);
+
+        this.buildBlocks.set(key, {
+            gridX,
+            gridY,
+            material,
+            visual,
+            collider
+        });
+    }
+
+    removeBuildBlock(gridX, gridY) {
+        const key = this.getBlockKey(gridX, gridY);
+        const block = this.buildBlocks.get(key);
+        if (!block) {
+            return;
+        }
+
+        block.visual?.destroy();
+        block.collider?.destroy();
+        this.buildBlocks.delete(key);
+    }
+
+    updateBuildInfoText() {
+        const label = this.selectedMaterial[0].toUpperCase() + this.selectedMaterial.slice(1);
+        this.hud.setBuildButtonLabel(`Material: ${label}`);
+        const mode = this.isBuildMode ? "ON" : "OFF";
+        const text =
+            `Build: ${mode} | Selected: ${label} | Brick ${this.inventory.brick} | ` +
+            `Wood ${this.inventory.wood} | Glass ${this.inventory.glass} | Hotkeys: B/F/G/1/2/3`;
+        this.hud.setBuildInfo(text);
+    }
+
     sendMoveIfNeeded(time) {
         if (!this.socketAdapter.id) {
             return;
@@ -1485,6 +1918,12 @@ export class WorldScene extends Phaser.Scene {
         if (this.unsubLoveBoost) {
             this.unsubLoveBoost();
         }
+        if (this.unsubBuildState) {
+            this.unsubBuildState();
+        }
+        if (this.unsubBuildPatch) {
+            this.unsubBuildPatch();
+        }
 
         if (this.chatForm && this.chatHandler) {
             this.chatForm.removeEventListener("submit", this.chatHandler);
@@ -1514,9 +1953,27 @@ export class WorldScene extends Phaser.Scene {
         }
         this.players.clear();
 
+        if (this.pointerPlaceHandler) {
+            this.input.off("pointerdown", this.pointerPlaceHandler);
+        }
+
         if (this.playerIndicator) {
             this.playerIndicator.destroy();
         }
+
+        this.buildPreview?.destroy();
+        this.crosshairH?.destroy();
+        this.crosshairV?.destroy();
+        for (const depot of this.materialDepots) {
+            for (const visual of depot.visuals || []) {
+                visual.destroy();
+            }
+        }
+        for (const block of this.buildBlocks.values()) {
+            block.visual?.destroy();
+            block.collider?.destroy();
+        }
+        this.buildBlocks.clear();
 
         this.hud.showDrivePad(false);
         this.hud.showGameOver(false);

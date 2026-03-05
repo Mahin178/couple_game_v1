@@ -119,6 +119,20 @@ canvas {
     width: min(640px, calc(100vw - 20px));
 }
 
+#buildInfo {
+    position: fixed;
+    left: 12px;
+    top: 74px;
+    background: rgba(12, 19, 22, 0.78);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    pointer-events: none;
+    font-size: 13px;
+    max-width: min(460px, calc(100vw - 24px));
+    color: #f8f7ef;
+}
+
 .actionBtn {
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -304,5 +318,10 @@ canvas {
         top: 62px;
         left: 50%;
         transform: translateX(-50%);
+    }
+
+    #buildInfo {
+        top: 108px;
+        font-size: 12px;
     }
 }

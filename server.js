@@ -4,6 +4,8 @@ const { Server } = require("socket.io");
 
 const MAX_PLAYERS = 4;
 const WORLD_SIZE = 4608;
+const TILE_SIZE = 64;
+const MATERIALS = new Set(["brick", "wood", "glass"]);
 
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +34,7 @@ const vehicles = {
         passengerId: null
     }
 };
+const buildBlocks = {};
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -40,6 +43,12 @@ function clamp(value, min, max) {
 function vehiclePayload() {
     return {
         vehicles: Object.values(vehicles)
+    };
+}
+
+function buildStatePayload() {
+    return {
+        blocks: Object.values(buildBlocks)
     };
 }
 
@@ -90,6 +99,7 @@ io.on("connection", (socket) => {
     socket.emit("currentPlayers", players);
     io.emit("updatePlayers", players);
     socket.emit("vehicleState", vehiclePayload());
+    socket.emit("buildState", buildStatePayload());
 
     socket.on("move", (data) => {
         const player = players[socket.id];
@@ -244,6 +254,53 @@ io.on("connection", (socket) => {
             fromId: socket.id,
             accepted
         });
+    });
+
+    socket.on("buildAction", (data) => {
+        if (!data || typeof data.action !== "string") {
+            return;
+        }
+
+        const gridX = Math.floor(Number(data.gridX));
+        const gridY = Math.floor(Number(data.gridY));
+        if (!Number.isFinite(gridX) || !Number.isFinite(gridY)) {
+            return;
+        }
+
+        const maxGrid = Math.floor(WORLD_SIZE / TILE_SIZE) - 1;
+        if (gridX < 0 || gridY < 0 || gridX > maxGrid || gridY > maxGrid) {
+            return;
+        }
+
+        const key = `${gridX}:${gridY}`;
+
+        if (data.action === "place") {
+            const material = typeof data.material === "string" ? data.material : "";
+            if (!MATERIALS.has(material) || buildBlocks[key]) {
+                return;
+            }
+
+            const block = {
+                id: key,
+                gridX,
+                gridY,
+                material,
+                by: socket.id
+            };
+
+            buildBlocks[key] = block;
+            io.emit("buildPatch", { action: "place", block });
+            return;
+        }
+
+        if (data.action === "remove") {
+            if (!buildBlocks[key]) {
+                return;
+            }
+
+            delete buildBlocks[key];
+            io.emit("buildPatch", { action: "remove", gridX, gridY });
+        }
     });
 
     socket.on("disconnect", () => {
