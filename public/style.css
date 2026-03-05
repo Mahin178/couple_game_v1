@@ -39,6 +39,21 @@ canvas {
     pointer-events: none;
 }
 
+#authorTag {
+    position: fixed;
+    left: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    z-index: 1200;
+    pointer-events: none;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+    color: rgba(255, 241, 247, 0.9);
+    background: rgba(26, 18, 24, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 8px;
+    padding: 5px 9px;
+}
+
 #topBar {
     position: fixed;
     top: 12px;
