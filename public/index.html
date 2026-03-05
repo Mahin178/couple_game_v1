@@ -8,11 +8,11 @@
 </head>
 <body>
     <div id="game-root"></div>
-    <div id="authorTag">MD Tausif</div>
+    <div id="authorTag">Ta ❤️ Nu </div>
 
     <div id="ui-overlay">
         <div id="topBar">
-            <div id="missionBox">❤️❤️ Virtual Love</div>
+            <div id="missionBox">❤️Don't afraid I am always with you Jan❤️</div>
             <div id="loveMeterWrap">
                 <span>Love</span>
                 <div id="loveMeter"><div id="loveFill"></div></div>
@@ -35,6 +35,11 @@
         </div>
 
         <div id="buildInfo" aria-live="polite">Build: OFF</div>
+        <div id="mobileMaterialPanel" aria-live="polite">
+            <div><span>brick:</span> <strong id="matBrickCount">0</strong></div>
+            <div><span>wood:</span> <strong id="matWoodCount">0</strong></div>
+            <div><span>glass:</span> <strong id="matGlassCount">0</strong></div>
+        </div>
 
         <div id="emojiBar">
             <button class="emojiBtn" data-emoji="❤️">❤️</button>
@@ -43,6 +48,7 @@
             <button class="emojiBtn" data-emoji="😎">😎</button>
             <button class="emojiBtn" data-emoji="😢">😢</button>
         </div>
+        <button id="btnChatToggle" type="button" aria-label="Toggle chat">💬</button>
 
         <form id="chatForm" autocomplete="off">
             <input id="chatInput" placeholder="Say something..." maxlength="90" />

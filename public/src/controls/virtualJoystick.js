@@ -3,6 +3,7 @@ export class VirtualJoystick {
         this.root = root;
         this.knob = knob;
         this.vector = { x: 0, y: 0 };
+        this.smoothVector = { x: 0, y: 0 };
         this.pointerId = null;
         this.center = { x: 0, y: 0 };
         this.maxRadius = 30;
@@ -27,6 +28,8 @@ export class VirtualJoystick {
         this.knob.style.top = `${this.center.y}px`;
         this.vector.x = 0;
         this.vector.y = 0;
+        this.smoothVector.x = 0;
+        this.smoothVector.y = 0;
     }
 
     bind() {
@@ -95,6 +98,8 @@ export class VirtualJoystick {
     }
 
     getVector() {
-        return this.vector;
+        this.smoothVector.x = Phaser.Math.Linear(this.smoothVector.x, this.vector.x, 0.35);
+        this.smoothVector.y = Phaser.Math.Linear(this.smoothVector.y, this.vector.y, 0.35);
+        return this.smoothVector;
     }
 }

@@ -102,12 +102,18 @@ export class WorldScene extends Phaser.Scene {
         this.mobileBuildHandler = null;
         this.isTouchDevice = false;
         this.buildHoverAction = "place";
+        this.mobileChatHandler = null;
+        this.mobileMissionHandler = null;
+        this.mobileMissionTimer = null;
+        this.mobileChatOpen = false;
+        this.audioCtx = null;
+        this.lastStepSoundTime = 0;
     }
 
     create() {
         this.hud = createHudControls();
         this.hud.showGameOver(false);
-        this.hud.setMission("Collect brick/wood/glass and build your first house");
+        this.setMission("Collect brick/wood/glass and build your first house");
         this.hud.setLove(35);
 
         this.createMap();
@@ -117,6 +123,7 @@ export class WorldScene extends Phaser.Scene {
         this.createVehicles();
         this.createVillains();
         this.createFlower();
+        this.createSoundSystem();
         this.createInput();
         this.createLocalPlayer();
         this.createPlayerIndicator();
@@ -127,8 +134,80 @@ export class WorldScene extends Phaser.Scene {
         this.bindActionButtons();
         this.bindDrivePadButtons();
         this.bindRestartButton();
+        this.bindMobileUi();
 
         this.events.once("shutdown", () => this.cleanup());
+    }
+
+    setMission(text) {
+        this.hud.setMission(text);
+        if (this.isTouchDevice) {
+            this.showMissionPeek(2000);
+        }
+    }
+
+    createSoundSystem() {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) {
+            return;
+        }
+
+        try {
+            this.audioCtx = new AudioCtx();
+        } catch (_error) {
+            this.audioCtx = null;
+        }
+    }
+
+    ensureAudioReady() {
+        if (this.audioCtx && this.audioCtx.state === "suspended") {
+            this.audioCtx.resume().catch(() => {});
+        }
+    }
+
+    playTone({ frequency = 220, duration = 0.07, type = "sine", volume = 0.05, slideTo = null }) {
+        if (!this.audioCtx) {
+            return;
+        }
+
+        this.ensureAudioReady();
+        const now = this.audioCtx.currentTime;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(frequency, now);
+        if (Number.isFinite(slideTo)) {
+            osc.frequency.exponentialRampToValueAtTime(Math.max(30, slideTo), now + duration);
+        }
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(volume, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+        osc.connect(gain).connect(this.audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + duration + 0.02);
+    }
+
+    playPlaceSound() {
+        this.playTone({ frequency: 460, slideTo: 300, duration: 0.08, type: "triangle", volume: 0.045 });
+    }
+
+    playRemoveSound() {
+        this.playTone({ frequency: 260, slideTo: 130, duration: 0.1, type: "square", volume: 0.04 });
+    }
+
+    playWalkStepSound(time) {
+        if (!this.audioCtx) {
+            return;
+        }
+
+        if (time - this.lastStepSoundTime < 220) {
+            return;
+        }
+
+        this.lastStepSoundTime = time;
+        const tone = 150 + (Math.random() * 45);
+        this.playTone({ frequency: tone, slideTo: tone * 0.7, duration: 0.045, type: "sine", volume: 0.02 });
     }
 
     createMap() {
@@ -597,7 +676,7 @@ export class WorldScene extends Phaser.Scene {
         this.unsubFlowerOffer = this.socketAdapter.on("flowerOffer", ({ fromId, fromName }) => {
             this.pendingFlowerOfferFrom = fromId;
             this.hud.showAction("acceptFlower", true);
-            this.hud.setMission(`${fromName || "Partner"} sent you a flower. Tap Accept.`);
+            this.setMission(`${fromName || "Partner"} sent you a flower. Tap Accept.`);
 
             this.time.delayedCall(7000, () => {
                 if (this.pendingFlowerOfferFrom === fromId) {
@@ -611,9 +690,9 @@ export class WorldScene extends Phaser.Scene {
             if (accepted) {
                 this.localHasFlower = false;
                 this.localPlayer?.setHasFlower(false);
-                this.hud.setMission("Flower accepted. Relationship boosted.");
+                this.setMission("Flower accepted. Relationship boosted.");
             } else {
-                this.hud.setMission("Flower declined. Try again later.");
+                this.setMission("Flower declined. Try again later.");
             }
         });
 
@@ -652,6 +731,9 @@ export class WorldScene extends Phaser.Scene {
 
             this.socketAdapter.chat(msg);
             this.chatInput.value = "";
+            if (this.isTouchDevice) {
+                this.setMobileChatOpen(false);
+            }
         };
         this.chatForm.addEventListener("submit", this.chatHandler);
     }
@@ -739,6 +821,48 @@ export class WorldScene extends Phaser.Scene {
             window.location.reload();
         };
         this.hud.restartButton.addEventListener("click", this.restartHandler);
+    }
+
+    bindMobileUi() {
+        if (!this.isTouchDevice) {
+            return;
+        }
+
+        if (this.hud.chatToggle) {
+            this.mobileChatHandler = () => this.setMobileChatOpen(!this.mobileChatOpen);
+            this.hud.chatToggle.addEventListener("click", this.mobileChatHandler);
+        }
+
+        if (this.hud.missionBox) {
+            this.mobileMissionHandler = () => this.showMissionPeek(2000);
+            this.hud.missionBox.addEventListener("click", this.mobileMissionHandler);
+        }
+
+        this.setMobileChatOpen(false);
+    }
+
+    setMobileChatOpen(open) {
+        this.mobileChatOpen = Boolean(open);
+        document.body.classList.toggle("mobile-chat-open", this.mobileChatOpen);
+        if (this.hud.chatToggle) {
+            this.hud.chatToggle.textContent = this.mobileChatOpen ? "✕" : "💬";
+        }
+    }
+
+    showMissionPeek(durationMs = 2000) {
+        if (!this.isTouchDevice) {
+            return;
+        }
+
+        document.body.classList.add("mobile-mission-open");
+        if (this.mobileMissionTimer) {
+            clearTimeout(this.mobileMissionTimer);
+        }
+
+        this.mobileMissionTimer = setTimeout(() => {
+            document.body.classList.remove("mobile-mission-open");
+            this.mobileMissionTimer = null;
+        }, durationMs);
     }
 
     syncRemotePlayers() {
@@ -831,7 +955,7 @@ export class WorldScene extends Phaser.Scene {
             if (this.getDrivingVehicleId()) {
                 this.updateDrivingMovement(dt, time);
             } else {
-                this.updateLocalMovement();
+                this.updateLocalMovement(time);
             }
 
             if (Phaser.Input.Keyboard.JustDown(this.keys.exitCar) && this.isLocalInVehicle()) {
@@ -855,7 +979,7 @@ export class WorldScene extends Phaser.Scene {
         }
     }
 
-    updateLocalMovement() {
+    updateLocalMovement(time) {
         if (this.isLocalInVehicle()) {
             this.localPlayer.setVelocity(0, 0);
             this.localPlayer.sprite.setVisible(false);
@@ -922,6 +1046,10 @@ export class WorldScene extends Phaser.Scene {
 
         this.localPlayer.applyAnimation(direction, animState);
         this.localPlayer.syncVisuals();
+
+        if (animState === "walk") {
+            this.playWalkStepSound(time);
+        }
     }
 
     carHitsBuilding(x, y) {
@@ -1234,7 +1362,7 @@ export class WorldScene extends Phaser.Scene {
     triggerGameOver() {
         this.isGameOver = true;
         this.hud.showGameOver(true);
-        this.hud.setMission("Villain caught you. Restart to try again.");
+        this.setMission("Villain caught you. Restart to try again.");
         this.drivePadVector.x = 0;
         this.drivePadVector.y = 0;
         this.localPlayer.setVelocity(0, 0);
@@ -1393,7 +1521,7 @@ export class WorldScene extends Phaser.Scene {
         this.hud.setMobileBuildLabel(this.buildHoverAction === "remove" ? "Remove" : "Place");
 
         if (coarse && this.getDrivingVehicleId()) {
-            this.hud.setMission("Use joystick to drive the car");
+            this.setMission("Use joystick to drive the car");
         }
 
         this.updateBuildInfoText();
@@ -1433,7 +1561,7 @@ export class WorldScene extends Phaser.Scene {
         this.localVehiclePhysics[vehicle.id].speed = 0;
         this.localVehiclePhysics[vehicle.id].angle = vehicle.angle;
         this.socketAdapter.vehicleAction({ action: "drive", vehicleId: vehicle.id });
-        this.hud.setMission(`Driving ${vehicle.id === "car_pink" ? "pink" : "red"} car. Use joystick/arrows.`);
+        this.setMission(`Driving ${vehicle.id === "car_pink" ? "pink" : "red"} car. Use joystick/arrows.`);
     }
 
     trySit() {
@@ -1451,7 +1579,7 @@ export class WorldScene extends Phaser.Scene {
         }
 
         this.socketAdapter.vehicleAction({ action: "sit", vehicleId: vehicle.id });
-        this.hud.setMission("You are in passenger seat.");
+        this.setMission("You are in passenger seat.");
     }
 
     exitCar() {
@@ -1460,7 +1588,7 @@ export class WorldScene extends Phaser.Scene {
         }
 
         this.socketAdapter.vehicleAction({ action: "leave" });
-        this.hud.setMission("You left the car.");
+        this.setMission("You left the car.");
     }
 
     openDoor() {
@@ -1493,7 +1621,7 @@ export class WorldScene extends Phaser.Scene {
         this.localPlayer.lastState.x = interior.spawnX;
         this.localPlayer.lastState.y = interior.spawnY;
         this.localPlayer.syncVisuals();
-        this.hud.setMission(`Inside ${door.id.replace("home_", "building ").toUpperCase()} - find exit door`);
+        this.setMission(`Inside ${door.id.replace("home_", "building ").toUpperCase()} - find exit door`);
     }
 
     exitInterior() {
@@ -1508,7 +1636,7 @@ export class WorldScene extends Phaser.Scene {
         this.localPlayer.syncVisuals();
         this.isInInterior = false;
         this.currentInterior = null;
-        this.hud.setMission("Back outside. Explore the city.");
+        this.setMission("Back outside. Explore the city.");
     }
 
     pickFlower() {
@@ -1526,7 +1654,7 @@ export class WorldScene extends Phaser.Scene {
         if (nearFlower) {
             this.localHasFlower = true;
             this.localPlayer.setHasFlower(true);
-            this.hud.setMission("Flower picked. Give it to your partner.");
+            this.setMission("Flower picked. Give it to your partner.");
         }
     }
 
@@ -1537,7 +1665,7 @@ export class WorldScene extends Phaser.Scene {
 
         this.localPlayer.playGiveFlowerAnimation();
         this.socketAdapter.flowerOffer({ toId: this.giveTargetId });
-        this.hud.setMission("Flower offer sent.");
+        this.setMission("Flower offer sent.");
     }
 
     acceptFlower() {
@@ -1571,7 +1699,7 @@ export class WorldScene extends Phaser.Scene {
         }
 
         this.isBuildMode = !this.isBuildMode;
-        this.hud.setMission(this.isBuildMode ? "Build mode on. Place your first house blocks." : "Build mode off.");
+        this.setMission(this.isBuildMode ? "Build mode on. Place your first house blocks." : "Build mode off.");
         this.updateBuildInfoText();
     }
 
@@ -1602,7 +1730,7 @@ export class WorldScene extends Phaser.Scene {
 
         this.inventory[depot.material] = clamp((this.inventory[depot.material] || 0) + 6, 0, 999);
         this.selectedMaterial = depot.material;
-        this.hud.setMission(`Collected ${depot.material}. Inventory updated.`);
+        this.setMission(`Collected ${depot.material}. Inventory updated.`);
         this.updateBuildInfoText();
     }
 
@@ -1766,7 +1894,7 @@ export class WorldScene extends Phaser.Scene {
         }
 
         if ((this.inventory[this.selectedMaterial] || 0) <= 0) {
-            this.hud.setMission(`No ${this.selectedMaterial}. Grab materials from depot first.`);
+            this.setMission(`No ${this.selectedMaterial}. Grab materials from depot first.`);
             return;
         }
 
@@ -1787,6 +1915,7 @@ export class WorldScene extends Phaser.Scene {
             gridY: target.gridY,
             material: this.selectedMaterial
         });
+        this.playPlaceSound();
         this.updateBuildInfoText();
     }
 
@@ -1813,6 +1942,7 @@ export class WorldScene extends Phaser.Scene {
             gridX: target.gridX,
             gridY: target.gridY
         });
+        this.playRemoveSound();
         this.updateBuildInfoText();
     }
 
@@ -1912,6 +2042,8 @@ export class WorldScene extends Phaser.Scene {
     updateBuildInfoText() {
         const label = this.selectedMaterial[0].toUpperCase() + this.selectedMaterial.slice(1);
         this.hud.setBuildButtonLabel(`Material: ${label}`);
+        this.hud.setMaterialCounts(this.inventory);
+        this.hud.setBuildModeLabel(this.isTouchDevice ? `Build: ${this.isBuildMode ? "ON" : "OFF"}` : "Build Mode");
         const mode = this.isBuildMode ? "ON" : "OFF";
         const text =
             `Build: ${mode} | Selected: ${label} | Brick ${this.inventory.brick} | ` +
@@ -2031,7 +2163,7 @@ export class WorldScene extends Phaser.Scene {
         this.hud.setLove(Math.round(meter));
 
         if (meter > 70 && !this.isGameOver) {
-            this.hud.setMission(this.isInInterior ? "Safe inside building" : "Strong bond. Explore and survive together.");
+            this.setMission(this.isInInterior ? "Safe inside building" : "Strong bond. Explore and survive together.");
         }
     }
 
@@ -2070,6 +2202,16 @@ export class WorldScene extends Phaser.Scene {
         }
         if (this.hud.mobileBuildAction && this.mobileBuildHandler) {
             this.hud.mobileBuildAction.removeEventListener("click", this.mobileBuildHandler);
+        }
+        if (this.hud.chatToggle && this.mobileChatHandler) {
+            this.hud.chatToggle.removeEventListener("click", this.mobileChatHandler);
+        }
+        if (this.hud.missionBox && this.mobileMissionHandler) {
+            this.hud.missionBox.removeEventListener("click", this.mobileMissionHandler);
+        }
+        if (this.mobileMissionTimer) {
+            clearTimeout(this.mobileMissionTimer);
+            this.mobileMissionTimer = null;
         }
 
         for (const { button, handler } of this.emojiHandlers || []) {
@@ -2117,6 +2259,8 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showDrivePad(false);
         this.hud.showMobileBuildAction(false);
         this.hud.showGameOver(false);
+        document.body.classList.remove("mobile-chat-open");
+        document.body.classList.remove("mobile-mission-open");
         for (const name of Object.keys(this.hud.buttons)) {
             this.hud.showAction(name, false);
         }

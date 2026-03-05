@@ -1,10 +1,11 @@
 :root {
-    --bg: #0d1213;
-    --panel: rgba(12, 19, 22, 0.78);
-    --border: rgba(255, 255, 255, 0.2);
+    --bg: #0f1a22;
+    --panel: rgba(16, 24, 38, 0.76);
+    --border: rgba(255, 255, 255, 0.26);
     --text: #f7f7f7;
-    --accent: #e45d57;
-    --accent-2: #ffd166;
+    --accent: #ff6c8a;
+    --accent-2: #ffc663;
+    --accent-3: #68e0cf;
 }
 
 * {
@@ -20,8 +21,9 @@ body {
     height: 100%;
     overflow: hidden;
     background:
-        radial-gradient(circle at 15% 20%, rgba(228, 93, 87, 0.2) 0%, transparent 30%),
-        radial-gradient(circle at 85% 80%, rgba(255, 209, 102, 0.16) 0%, transparent 35%),
+        radial-gradient(circle at 15% 20%, rgba(255, 108, 138, 0.22) 0%, transparent 30%),
+        radial-gradient(circle at 85% 80%, rgba(255, 198, 99, 0.16) 0%, transparent 35%),
+        radial-gradient(circle at 52% 72%, rgba(104, 224, 207, 0.1) 0%, transparent 40%),
         var(--bg);
     color: var(--text);
     font-family: "Trebuchet MS", "Segoe UI", sans-serif;
@@ -47,8 +49,8 @@ canvas {
     pointer-events: none;
     font-size: 13px;
     letter-spacing: 0.3px;
-    color: rgba(255, 241, 247, 0.9);
-    background: rgba(26, 18, 24, 0.72);
+    color: rgba(255, 241, 247, 0.92);
+    background: rgba(24, 16, 33, 0.76);
     border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 8px;
     padding: 5px 9px;
@@ -73,6 +75,11 @@ canvas {
     padding: 10px 12px;
     backdrop-filter: blur(5px);
     font-size: 14px;
+    color: #f7f3ff;
+}
+
+#missionBox {
+    cursor: pointer;
 }
 
 #loveMeterWrap {
@@ -91,7 +98,7 @@ canvas {
 #loveFill {
     height: 100%;
     width: 35%;
-    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
     transition: width 300ms ease;
 }
 
@@ -133,10 +140,30 @@ canvas {
     color: #f8f7ef;
 }
 
+#mobileMaterialPanel {
+    position: fixed;
+    left: 10px;
+    top: 116px;
+    z-index: 1200;
+    pointer-events: none;
+    display: none;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: rgba(10, 20, 31, 0.75);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+#mobileMaterialPanel div span {
+    text-transform: capitalize;
+    color: #e8f1ff;
+}
+
 .actionBtn {
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: rgba(17, 28, 31, 0.82);
+    background: linear-gradient(140deg, rgba(30, 42, 56, 0.92), rgba(23, 30, 42, 0.92));
     color: #fff;
     padding: 8px 12px;
     font-weight: 700;
@@ -151,7 +178,7 @@ canvas {
     display: flex;
     gap: 8px;
     pointer-events: auto;
-    background: rgba(5, 9, 10, 0.52);
+    background: rgba(8, 18, 25, 0.6);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 6px;
@@ -165,6 +192,22 @@ canvas {
     padding: 4px 7px;
     font-size: 18px;
     line-height: 1;
+}
+
+#btnChatToggle {
+    position: fixed;
+    right: 12px;
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: linear-gradient(130deg, rgba(255, 108, 138, 0.9), rgba(92, 208, 192, 0.9));
+    color: #fff;
+    font-size: 19px;
+    display: none;
+    pointer-events: auto;
+    touch-action: manipulation;
 }
 
 #chatInput {
@@ -188,7 +231,7 @@ canvas {
 #chatSend {
     border: 1px solid var(--border);
     border-radius: 12px;
-    background: rgba(228, 93, 87, 0.9);
+    background: linear-gradient(120deg, #f05974, #ef8f54);
     color: #fff;
     padding: 0 16px;
     font-weight: 700;
@@ -205,8 +248,22 @@ canvas {
     display: none;
     pointer-events: auto;
     touch-action: none;
-    border: 2px solid rgba(255, 255, 255, 0.28);
-    background: rgba(255, 255, 255, 0.06);
+    border: 2px solid rgba(255, 255, 255, 0.34);
+    background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.2), rgba(90, 118, 166, 0.12));
+}
+
+#joystickKnob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 58px;
+    height: 58px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.7), rgba(187, 215, 255, 0.2));
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    touch-action: none;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
 }
 
 .mobileBuildBtn {
@@ -217,7 +274,7 @@ canvas {
     height: 42px;
     border-radius: 11px;
     border: 1px solid var(--border);
-    background: rgba(18, 30, 34, 0.9);
+    background: linear-gradient(130deg, rgba(255, 108, 138, 0.92), rgba(112, 163, 255, 0.92));
     color: #fff;
     font-weight: 700;
     display: none;
@@ -225,18 +282,6 @@ canvas {
     justify-content: center;
     pointer-events: auto;
     touch-action: manipulation;
-}
-
-#joystickKnob {
-    position: absolute;
-    left: 66px;
-    top: 66px;
-    width: 58px;
-    height: 58px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.55);
-    touch-action: none;
 }
 
 #drivePad {
@@ -258,8 +303,8 @@ canvas {
     height: 54px;
     margin: 4px;
     border-radius: 10px;
-    border: 1px solid var(--border);
-    background: rgba(8, 16, 20, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    background: rgba(15, 26, 38, 0.85);
     color: #fff;
     font-size: 24px;
     font-weight: 700;
@@ -308,6 +353,12 @@ canvas {
         display: block;
     }
 
+    #btnChatToggle {
+        display: block;
+        right: 8px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+
     #topBar {
         font-size: 12px;
     }
@@ -318,18 +369,33 @@ canvas {
     }
 
     #chatForm {
-        left: auto;
+        left: 8px;
         transform: none;
-        right: 12px;
-        width: min(360px, calc(100vw - 170px));
-        bottom: max(12px, env(safe-area-inset-bottom));
+        right: 8px;
+        width: auto;
+        bottom: calc(8px + env(safe-area-inset-bottom));
+        display: none;
+    }
+
+    body.mobile-chat-open #chatForm {
+        display: flex;
     }
 
     #emojiBar {
-        right: 12px;
-        bottom: calc(62px + env(safe-area-inset-bottom));
-        max-width: calc(100vw - 180px);
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        bottom: calc(10px + env(safe-area-inset-bottom));
+        max-width: calc(100vw - 134px);
         overflow-x: auto;
+    }
+
+    body.mobile-chat-open #emojiBar {
+        bottom: calc(62px + env(safe-area-inset-bottom));
+    }
+
+    body.mobile-chat-open #authorTag {
+        display: none;
     }
 
     #interactionPanel {
@@ -351,9 +417,45 @@ canvas {
     }
 
     #buildInfo {
-        top: 104px;
+        display: none;
+    }
+
+    #mobileMaterialPanel {
+        display: block;
+    }
+
+    #missionBox {
+        max-width: 74px;
+        overflow: hidden;
+        white-space: nowrap;
+        opacity: 0.65;
+        transition: max-width 180ms ease, opacity 180ms ease;
+    }
+
+    body.mobile-mission-open #missionBox {
+        max-width: min(74vw, 520px);
+        white-space: normal;
+        opacity: 1;
+    }
+
+    #btnBuildMode {
+        min-width: 96px;
+    }
+
+    #authorTag {
+        left: 8px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
         font-size: 12px;
-        max-width: min(96vw, 460px);
+        background: rgba(18, 15, 26, 0.88);
+    }
+
+    #chatSend {
+        min-width: 74px;
+    }
+
+    #chatInput {
+        font-size: 15px;
+        min-width: 0;
     }
 }
 
@@ -365,19 +467,11 @@ canvas {
     }
 
     #missionBox {
-        max-width: 62vw;
+        max-width: 62px;
     }
 
     #loveMeterWrap {
         min-width: 108px;
-    }
-
-    #chatForm {
-        width: min(300px, calc(100vw - 158px));
-    }
-
-    #emojiBar {
-        right: 8px;
     }
 
     #mobileJoystick {
@@ -388,8 +482,6 @@ canvas {
     }
 
     #joystickKnob {
-        left: 59px;
-        top: 59px;
         width: 52px;
         height: 52px;
     }
@@ -400,5 +492,9 @@ canvas {
         min-width: 78px;
         height: 40px;
         font-size: 12px;
+    }
+
+    #emojiBar {
+        max-width: calc(100vw - 118px);
     }
 }

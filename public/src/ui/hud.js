@@ -4,6 +4,13 @@ export function createHudControls() {
     const emojiButtons = Array.from(document.querySelectorAll(".emojiBtn"));
     const loveFill = document.getElementById("loveFill");
     const missionBox = document.getElementById("missionBox");
+    const authorTag = document.getElementById("authorTag");
+    const chatToggle = document.getElementById("btnChatToggle");
+    const materialCounts = {
+        brick: document.getElementById("matBrickCount"),
+        wood: document.getElementById("matWoodCount"),
+        glass: document.getElementById("matGlassCount")
+    };
     const buttons = {
         drive: document.getElementById("btnDrive"),
         sit: document.getElementById("btnSit"),
@@ -34,6 +41,10 @@ export function createHudControls() {
         chatForm,
         chatInput,
         emojiButtons,
+        missionBox,
+        authorTag,
+        chatToggle,
+        materialCounts,
         buttons,
         drivePad,
         restartButton,
@@ -45,6 +56,22 @@ export function createHudControls() {
         },
         setMission(text) {
             missionBox.textContent = `Mission: ${text}`;
+        },
+        setBuildModeLabel(text) {
+            if (buttons.buildMode) {
+                buttons.buildMode.textContent = text;
+            }
+        },
+        setMaterialCounts(counts) {
+            if (materialCounts.brick) {
+                materialCounts.brick.textContent = String(counts.brick ?? 0);
+            }
+            if (materialCounts.wood) {
+                materialCounts.wood.textContent = String(counts.wood ?? 0);
+            }
+            if (materialCounts.glass) {
+                materialCounts.glass.textContent = String(counts.glass ?? 0);
+            }
         },
         showAction(name, show) {
             const btn = buttons[name];
