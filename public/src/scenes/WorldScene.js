@@ -49,6 +49,19 @@ function angleToDirection(angle) {
     return "left";
 }
 
+function directionToVector(direction) {
+    if (direction === "up") {
+        return { x: 0, y: -1 };
+    }
+    if (direction === "down") {
+        return { x: 0, y: 1 };
+    }
+    if (direction === "left") {
+        return { x: -1, y: 0 };
+    }
+    return { x: 1, y: 0 };
+}
+
 export class WorldScene extends Phaser.Scene {
     constructor(socketAdapter) {
         super("WorldScene");
@@ -86,6 +99,9 @@ export class WorldScene extends Phaser.Scene {
         this.unsubBuildState = null;
         this.unsubBuildPatch = null;
         this.pointerPlaceHandler = null;
+        this.mobileBuildHandler = null;
+        this.isTouchDevice = false;
+        this.buildHoverAction = "place";
     }
 
     create() {
@@ -325,8 +341,8 @@ export class WorldScene extends Phaser.Scene {
 
         this.buildPreview = this.add.rectangle(0, 0, TILE_SIZE - 6, TILE_SIZE - 6, 0xbd6d58, 0.24).setDepth(2110).setVisible(false);
         this.buildPreview.setStrokeStyle(2, 0xfefefe, 0.7);
-        this.crosshairH = this.add.rectangle(0, 0, 22, 2, 0xfefefe, 0.9).setDepth(2111).setVisible(false);
-        this.crosshairV = this.add.rectangle(0, 0, 2, 22, 0xfefefe, 0.9).setDepth(2111).setVisible(false);
+        this.crosshairH = this.add.rectangle(0, 0, 14, 2, 0xfefefe, 0.9).setDepth(2111).setVisible(false);
+        this.crosshairV = this.add.rectangle(0, 0, 2, 14, 0xfefefe, 0.9).setDepth(2111).setVisible(false);
         this.updateBuildInfoText();
     }
 
@@ -471,8 +487,8 @@ export class WorldScene extends Phaser.Scene {
             matGlass: Phaser.Input.Keyboard.KeyCodes.THREE
         });
 
-        const isTouch = window.matchMedia("(pointer: coarse)").matches;
-        if (isTouch) {
+        this.isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
+        if (this.isTouchDevice) {
             const root = document.getElementById("mobileJoystick");
             const knob = document.getElementById("joystickKnob");
             this.joystick = new VirtualJoystick(root, knob);
@@ -488,12 +504,23 @@ export class WorldScene extends Phaser.Scene {
                 return;
             }
 
-            if (pointer.rightButtonDown()) {
-                this.tryRemoveBlock();
+            const target = this.getActiveBuildTarget();
+            if (!target) {
                 return;
             }
 
-            this.tryPlaceBlock();
+            if (pointer.rightButtonDown()) {
+                this.tryRemoveBlock(target);
+                return;
+            }
+
+            const key = this.getBlockKey(target.gridX, target.gridY);
+            if (this.buildBlocks.has(key)) {
+                this.tryRemoveBlock(target);
+                return;
+            }
+
+            this.tryPlaceBlock(target);
         };
         this.input.on("pointerdown", this.pointerPlaceHandler);
     }
@@ -669,6 +696,11 @@ export class WorldScene extends Phaser.Scene {
         bind("placeBlock", () => this.tryPlaceBlock());
         bind("removeBlock", () => this.tryRemoveBlock());
         bind("cycleMaterial", () => this.cycleMaterial());
+
+        if (this.hud.mobileBuildAction) {
+            this.mobileBuildHandler = () => this.performContextualBuildAction();
+            this.hud.mobileBuildAction.addEventListener("click", this.mobileBuildHandler);
+        }
     }
 
     bindDrivePadButtons() {
@@ -1211,6 +1243,7 @@ export class WorldScene extends Phaser.Scene {
         for (const name of Object.keys(this.hud.buttons)) {
             this.hud.showAction(name, false);
         }
+        this.hud.showMobileBuildAction(false);
     }
 
     updateFlowerVisual() {
@@ -1322,6 +1355,7 @@ export class WorldScene extends Phaser.Scene {
             this.hud.showAction("placeBlock", false);
             this.hud.showAction("removeBlock", false);
             this.hud.showAction("cycleMaterial", false);
+            this.hud.showMobileBuildAction(false);
             this.updateBuildInfoText();
             return;
         }
@@ -1352,9 +1386,11 @@ export class WorldScene extends Phaser.Scene {
         const canBuild = !seat && !this.isInInterior;
         this.hud.showAction("buildMode", canBuild);
         this.hud.showAction("grabMaterial", canBuild && nearDepot);
-        this.hud.showAction("placeBlock", canBuild && this.isBuildMode);
-        this.hud.showAction("removeBlock", canBuild && this.isBuildMode);
+        this.hud.showAction("placeBlock", canBuild && this.isBuildMode && !this.isTouchDevice);
+        this.hud.showAction("removeBlock", canBuild && this.isBuildMode && !this.isTouchDevice);
         this.hud.showAction("cycleMaterial", canBuild && this.isBuildMode);
+        this.hud.showMobileBuildAction(canBuild && this.isBuildMode && this.isTouchDevice);
+        this.hud.setMobileBuildLabel(this.buildHoverAction === "remove" ? "Remove" : "Place");
 
         if (coarse && this.getDrivingVehicleId()) {
             this.hud.setMission("Use joystick to drive the car");
@@ -1576,6 +1612,18 @@ export class WorldScene extends Phaser.Scene {
 
     getBuildTargetFromPointer() {
         const pointer = this.input.activePointer;
+        const withinCanvas =
+            pointer &&
+            Number.isFinite(pointer.x) &&
+            Number.isFinite(pointer.y) &&
+            pointer.x >= 0 &&
+            pointer.y >= 0 &&
+            pointer.x <= this.scale.width &&
+            pointer.y <= this.scale.height;
+        if (!withinCanvas) {
+            return null;
+        }
+
         const worldX = pointer.worldX;
         const worldY = pointer.worldY;
         if (!Number.isFinite(worldX) || !Number.isFinite(worldY)) {
@@ -1590,11 +1638,46 @@ export class WorldScene extends Phaser.Scene {
         return { gridX, gridY, x, y };
     }
 
+    getBuildTargetAhead() {
+        const dir = this.localPlayer?.lastState?.direction || "down";
+        const vec = directionToVector(dir);
+        const offset = TILE_SIZE;
+        const worldX = this.localPlayer.sprite.x + vec.x * offset;
+        const worldY = this.localPlayer.sprite.y + vec.y * offset;
+        const maxGrid = Math.floor(WORLD_SIZE / TILE_SIZE) - 1;
+        const gridX = clamp(Math.floor(worldX / TILE_SIZE), 0, maxGrid);
+        const gridY = clamp(Math.floor(worldY / TILE_SIZE), 0, maxGrid);
+        return {
+            gridX,
+            gridY,
+            x: gridX * TILE_SIZE + TILE_SIZE / 2,
+            y: gridY * TILE_SIZE + TILE_SIZE / 2
+        };
+    }
+
+    getActiveBuildTarget() {
+        if (this.isTouchDevice) {
+            return this.getBuildTargetAhead();
+        }
+
+        return this.getBuildTargetFromPointer() || this.getBuildTargetAhead();
+    }
+
     canReachBuildCell(gridX, gridY) {
         const x = gridX * TILE_SIZE + TILE_SIZE / 2;
         const y = gridY * TILE_SIZE + TILE_SIZE / 2;
         const dist = Phaser.Math.Distance.Between(this.localPlayer.sprite.x, this.localPlayer.sprite.y, x, y);
         return dist < 190;
+    }
+
+    isInsideBuildingFootprint(gridX, gridY) {
+        for (const building of this.buildings) {
+            if (gridX >= building.tx && gridX < building.tx + building.tw && gridY >= building.ty && gridY < building.ty + building.th) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     canPlaceAt(gridX, gridY) {
@@ -1608,6 +1691,10 @@ export class WorldScene extends Phaser.Scene {
 
         const key = this.getBlockKey(gridX, gridY);
         if (this.buildBlocks.has(key)) {
+            return false;
+        }
+
+        if (this.isInsideBuildingFootprint(gridX, gridY)) {
             return false;
         }
 
@@ -1626,46 +1713,74 @@ export class WorldScene extends Phaser.Scene {
         return true;
     }
 
+    canRemoveAt(gridX, gridY) {
+        if (!this.canReachBuildCell(gridX, gridY)) {
+            return false;
+        }
+
+        const key = this.getBlockKey(gridX, gridY);
+        return this.buildBlocks.has(key);
+    }
+
     updateBuildPreview() {
         if (!this.isBuildMode || this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
             this.buildTarget = null;
             this.buildPreview?.setVisible(false);
             this.crosshairH?.setVisible(false);
             this.crosshairV?.setVisible(false);
+            this.buildHoverAction = "place";
             return;
         }
 
-        const target = this.getBuildTargetFromPointer();
+        const target = this.getActiveBuildTarget();
         if (!target) {
             this.buildTarget = null;
             this.buildPreview?.setVisible(false);
             this.crosshairH?.setVisible(false);
             this.crosshairV?.setVisible(false);
+            this.buildHoverAction = "place";
             return;
         }
 
         this.buildTarget = target;
-        const valid = this.canPlaceAt(target.gridX, target.gridY);
+        const key = this.getBlockKey(target.gridX, target.gridY);
+        const hasExisting = this.buildBlocks.has(key);
+        this.buildHoverAction = hasExisting ? "remove" : "place";
+        const valid = hasExisting ? this.canRemoveAt(target.gridX, target.gridY) : this.canPlaceAt(target.gridX, target.gridY);
         const style = MATERIAL_STYLE[this.selectedMaterial];
 
         this.buildPreview.setPosition(target.x, target.y).setVisible(true);
-        this.buildPreview.setFillStyle(valid ? style.preview : 0xcc3d47, valid ? 0.24 : 0.26);
+        if (hasExisting) {
+            this.buildPreview.setFillStyle(valid ? 0x5093ff : 0xcc3d47, valid ? 0.22 : 0.26);
+        } else {
+            this.buildPreview.setFillStyle(valid ? style.preview : 0xcc3d47, valid ? 0.24 : 0.26);
+        }
         this.buildPreview.setStrokeStyle(2, valid ? 0xf8f8f8 : 0xffd5d5, 0.88);
         this.crosshairH.setPosition(target.x, target.y).setVisible(true);
         this.crosshairV.setPosition(target.x, target.y).setVisible(true);
     }
 
-    tryPlaceBlock() {
+    tryPlaceBlock(overrideTarget = null) {
         if (!this.isBuildMode || this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
             return;
         }
 
-        const target = this.buildTarget || this.getBuildTargetFromPointer();
+        if ((this.inventory[this.selectedMaterial] || 0) <= 0) {
+            this.hud.setMission(`No ${this.selectedMaterial}. Grab materials from depot first.`);
+            return;
+        }
+
+        const target = overrideTarget || this.buildTarget || this.getActiveBuildTarget();
         if (!target || !this.canPlaceAt(target.gridX, target.gridY)) {
             return;
         }
 
         this.inventory[this.selectedMaterial] = Math.max(0, (this.inventory[this.selectedMaterial] || 0) - 1);
+        this.upsertBuildBlock({
+            gridX: target.gridX,
+            gridY: target.gridY,
+            material: this.selectedMaterial
+        });
         this.socketAdapter.buildAction({
             action: "place",
             gridX: target.gridX,
@@ -1675,13 +1790,13 @@ export class WorldScene extends Phaser.Scene {
         this.updateBuildInfoText();
     }
 
-    tryRemoveBlock() {
+    tryRemoveBlock(overrideTarget = null) {
         if (!this.isBuildMode || this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
             return;
         }
 
-        const target = this.buildTarget || this.getBuildTargetFromPointer();
-        if (!target || !this.canReachBuildCell(target.gridX, target.gridY)) {
+        const target = overrideTarget || this.buildTarget || this.getActiveBuildTarget();
+        if (!target || !this.canRemoveAt(target.gridX, target.gridY)) {
             return;
         }
 
@@ -1692,12 +1807,33 @@ export class WorldScene extends Phaser.Scene {
         }
 
         this.inventory[existing.material] = clamp((this.inventory[existing.material] || 0) + 1, 0, 999);
+        this.removeBuildBlock(target.gridX, target.gridY);
         this.socketAdapter.buildAction({
             action: "remove",
             gridX: target.gridX,
             gridY: target.gridY
         });
         this.updateBuildInfoText();
+    }
+
+    performContextualBuildAction() {
+        if (!this.isBuildMode) {
+            this.toggleBuildMode();
+            return;
+        }
+
+        const target = this.buildTarget || this.getActiveBuildTarget();
+        if (!target) {
+            return;
+        }
+
+        const key = this.getBlockKey(target.gridX, target.gridY);
+        if (this.buildBlocks.has(key)) {
+            this.tryRemoveBlock(target);
+            return;
+        }
+
+        this.tryPlaceBlock(target);
     }
 
     replaceBuildState(blocks) {
@@ -1932,6 +2068,9 @@ export class WorldScene extends Phaser.Scene {
         if (this.hud.restartButton && this.restartHandler) {
             this.hud.restartButton.removeEventListener("click", this.restartHandler);
         }
+        if (this.hud.mobileBuildAction && this.mobileBuildHandler) {
+            this.hud.mobileBuildAction.removeEventListener("click", this.mobileBuildHandler);
+        }
 
         for (const { button, handler } of this.emojiHandlers || []) {
             button.removeEventListener("click", handler);
@@ -1976,6 +2115,7 @@ export class WorldScene extends Phaser.Scene {
         this.buildBlocks.clear();
 
         this.hud.showDrivePad(false);
+        this.hud.showMobileBuildAction(false);
         this.hud.showGameOver(false);
         for (const name of Object.keys(this.hud.buttons)) {
             this.hud.showAction(name, false);

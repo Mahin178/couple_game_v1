@@ -18,6 +18,7 @@ export function createHudControls() {
         removeBlock: document.getElementById("btnRemoveBlock"),
         cycleMaterial: document.getElementById("btnCycleMaterial")
     };
+    const mobileBuildAction = document.getElementById("btnMobileBuildAction");
     const buildInfo = document.getElementById("buildInfo");
     const drivePad = {
         root: document.getElementById("drivePad"),
@@ -37,6 +38,7 @@ export function createHudControls() {
         drivePad,
         restartButton,
         buildInfo,
+        mobileBuildAction,
         setLove(value) {
             const clamped = Math.max(0, Math.min(100, value));
             loveFill.style.width = `${clamped}%`;
@@ -66,6 +68,16 @@ export function createHudControls() {
         setBuildButtonLabel(text) {
             if (buttons.cycleMaterial) {
                 buttons.cycleMaterial.textContent = text;
+            }
+        },
+        setMobileBuildLabel(text) {
+            if (mobileBuildAction) {
+                mobileBuildAction.textContent = text;
+            }
+        },
+        showMobileBuildAction(show) {
+            if (mobileBuildAction) {
+                mobileBuildAction.style.display = show ? "inline-flex" : "none";
             }
         }
     };
