@@ -5,9 +5,9 @@ import { createHudControls } from "../ui/hud.js";
 
 const MAX_PLAYERS = 4;
 const PLAYER_SPEED = 190;
-const CAR_ACCEL = 520;
-const CAR_BRAKE = 680;
-const CAR_MAX_FORWARD = 430;
+const CAR_ACCEL = 560;
+const CAR_BRAKE = 760;
+const CAR_MAX_FORWARD = 440;
 const CAR_MAX_REVERSE = -190;
 const DIRECTIONS = ["down", "left", "right", "up"];
 
@@ -22,7 +22,6 @@ function chooseColorOffset(id) {
         hash = (hash << 5) - hash + id.charCodeAt(i);
         hash |= 0;
     }
-
     return Math.abs(hash) % 2 === 0 ? 0 : 12;
 }
 
@@ -55,6 +54,10 @@ export class WorldScene extends Phaser.Scene {
         this.vehicleRender = {};
         this.vehicleSprites = {};
         this.localVehiclePhysics = {};
+        this.buildings = [];
+        this.buildingRects = [];
+        this.buildingDoors = [];
+        this.interiors = {};
         this.lastEmitTime = 0;
         this.lastDriveEmitTime = 0;
         this.lastSentState = null;
@@ -65,22 +68,25 @@ export class WorldScene extends Phaser.Scene {
         this.giveTargetId = null;
         this.loveBonus = 0;
         this.isGameOver = false;
-        this.isTransitioning = false;
+        this.isInInterior = false;
+        this.currentInterior = null;
     }
 
     create() {
         this.hud = createHudControls();
         this.hud.showGameOver(false);
-        this.hud.setMission("Explore, drive together, and avoid villains");
+        this.hud.setMission("Explore, drive, and avoid villains");
         this.hud.setLove(35);
 
         this.createMap();
         this.createWorldDetails();
+        this.createInteriorDistrict();
         this.createVehicles();
         this.createVillains();
         this.createFlower();
         this.createInput();
         this.createLocalPlayer();
+        this.createPlayerIndicator();
         this.setupNetworking();
         this.createDayNightOverlay();
         this.bindChatInput();
@@ -112,60 +118,71 @@ export class WorldScene extends Phaser.Scene {
             this.roadLayer.putTileAt(1, x, 22);
             this.roadLayer.putTileAt(1, x, 23);
             this.roadLayer.putTileAt(1, x, 24);
+            this.roadLayer.putTileAt(1, x, 43);
+            this.roadLayer.putTileAt(1, x, 44);
+            this.roadLayer.putTileAt(1, x, 45);
         }
 
         for (let y = 0; y < tileCount; y += 1) {
             this.roadLayer.putTileAt(1, 22, y);
             this.roadLayer.putTileAt(1, 23, y);
             this.roadLayer.putTileAt(1, 24, y);
+            this.roadLayer.putTileAt(1, 43, y);
+            this.roadLayer.putTileAt(1, 44, y);
+            this.roadLayer.putTileAt(1, 45, y);
         }
 
-        for (let x = 8; x <= 14; x += 1) {
-            for (let y = 8; y <= 12; y += 1) {
-                this.blockLayer.putTileAt(2, x, y);
-            }
-        }
+        this.buildings = [
+            { id: "home_a", tx: 8, ty: 8, tw: 7, th: 5, type: 2, wall: 0x7e6b57, roof: 0x927f69, doorSide: "bottom", theme: "warm" },
+            { id: "home_b", tx: 30, ty: 10, tw: 7, th: 7, type: 2, wall: 0x6f7e65, roof: 0x859179, doorSide: "left", theme: "mint" },
+            { id: "home_c", tx: 31, ty: 30, tw: 5, th: 5, type: 3, wall: 0x8d7b66, roof: 0xa28f79, doorSide: "bottom", theme: "sunset" },
+            { id: "home_d", tx: 12, ty: 38, tw: 6, th: 5, type: 2, wall: 0x69748d, roof: 0x7f8aa4, doorSide: "bottom", theme: "mint" },
+            { id: "home_e", tx: 46, ty: 12, tw: 6, th: 5, type: 3, wall: 0x8b6f6f, roof: 0xa38484, doorSide: "right", theme: "sunset" },
+            { id: "home_f", tx: 50, ty: 33, tw: 8, th: 6, type: 2, wall: 0x6e7b68, roof: 0x879483, doorSide: "bottom", theme: "warm" }
+        ];
 
-        for (let x = 30; x <= 36; x += 1) {
-            for (let y = 10; y <= 16; y += 1) {
-                this.blockLayer.putTileAt(2, x, y);
+        for (const b of this.buildings) {
+            for (let x = b.tx; x < b.tx + b.tw; x += 1) {
+                for (let y = b.ty; y < b.ty + b.th; y += 1) {
+                    this.blockLayer.putTileAt(b.type, x, y);
+                }
             }
-        }
 
-        for (let x = 31; x <= 35; x += 1) {
-            for (let y = 30; y <= 34; y += 1) {
-                this.blockLayer.putTileAt(3, x, y);
+            const px = b.tx * TILE_SIZE;
+            const py = b.ty * TILE_SIZE;
+            const pw = b.tw * TILE_SIZE;
+            const ph = b.th * TILE_SIZE;
+            this.buildingRects.push({ x: px, y: py, w: pw, h: ph });
+
+            let doorX = px + pw / 2;
+            let doorY = py + ph - 6;
+            let returnX = doorX;
+            let returnY = doorY + 26;
+
+            if (b.doorSide === "left") {
+                doorX = px + 12;
+                doorY = py + ph / 2;
+                returnX = doorX + 30;
+                returnY = doorY + 20;
             }
+            if (b.doorSide === "right") {
+                doorX = px + pw - 12;
+                doorY = py + ph / 2;
+                returnX = doorX - 30;
+                returnY = doorY + 20;
+            }
+
+            this.buildingDoors.push({
+                id: b.id,
+                x: doorX,
+                y: doorY,
+                returnX,
+                returnY,
+                interiorTheme: b.theme
+            });
         }
 
         this.blockLayer.setCollision([2, 3]);
-
-        this.buildingDoors = [
-            {
-                id: "home_a",
-                x: 11.5 * TILE_SIZE,
-                y: 13 * TILE_SIZE - 6,
-                returnX: 11.5 * TILE_SIZE,
-                returnY: 13 * TILE_SIZE + 26,
-                interiorTheme: "warm"
-            },
-            {
-                id: "home_b",
-                x: 30 * TILE_SIZE + 14,
-                y: 13.5 * TILE_SIZE,
-                returnX: 30 * TILE_SIZE + 44,
-                returnY: 13.5 * TILE_SIZE + 20,
-                interiorTheme: "mint"
-            },
-            {
-                id: "home_c",
-                x: 33.5 * TILE_SIZE,
-                y: 35 * TILE_SIZE - 6,
-                returnX: 33.5 * TILE_SIZE,
-                returnY: 35 * TILE_SIZE + 26,
-                interiorTheme: "sunset"
-            }
-        ];
         this.physics.world.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
         this.cameras.main.setBounds(0, 0, WORLD_SIZE, WORLD_SIZE);
     }
@@ -173,64 +190,57 @@ export class WorldScene extends Phaser.Scene {
     createWorldDetails() {
         const decor = this.add.graphics();
 
-        const drawBuilding3D = (x, y, w, h, wallColor, roofColor, doorSide = "bottom") => {
-            decor.fillStyle(0x000000, 0.22);
+        const drawBuilding3D = (b) => {
+            const x = b.tx * TILE_SIZE;
+            const y = b.ty * TILE_SIZE;
+            const w = b.tw * TILE_SIZE;
+            const h = b.th * TILE_SIZE;
+
+            decor.fillStyle(0x000000, 0.2);
             decor.fillRect(x + 10, y + h + 8, w, 14);
-
-            decor.fillStyle(wallColor, 1);
+            decor.fillStyle(b.wall, 1);
             decor.fillRect(x, y, w, h);
-
-            decor.fillStyle(roofColor, 1);
+            decor.fillStyle(b.roof, 1);
             decor.fillRect(x - 6, y - 10, w + 12, 10);
-
             decor.lineStyle(2, 0x2f241a, 0.9);
             decor.strokeRect(x, y, w, h);
 
             decor.fillStyle(0xc7d6e8, 0.92);
-            for (let i = 0; i < 3; i += 1) {
+            for (let i = 0; i < Math.max(2, Math.floor(b.tw / 2)); i += 1) {
                 const wx = x + 18 + i * 26;
                 const wy = y + 16;
                 if (wx + 18 < x + w - 8) {
                     decor.fillRect(wx, wy, 18, 18);
-                    decor.fillStyle(0xffffff, 0.35);
-                    decor.fillRect(wx + 2, wy + 2, 4, 4);
-                    decor.fillStyle(0xc7d6e8, 0.92);
                 }
             }
 
             decor.fillStyle(0x563620, 1);
-            if (doorSide === "bottom") {
-                decor.fillRect(x + w / 2 - 10, y + h - 24, 20, 24);
-                decor.fillStyle(0xf6dd9e, 0.9);
-                decor.fillCircle(x + w / 2 + 6, y + h - 12, 2);
-            } else if (doorSide === "left") {
-                decor.fillRect(x, y + h / 2 - 10, 24, 20);
-            } else {
-                decor.fillRect(x + w - 24, y + h / 2 - 10, 24, 20);
+            const door = this.buildingDoors.find((d) => d.id === b.id);
+            if (door) {
+                decor.fillRect(door.x - 10, door.y - 24, 20, 24);
+                decor.fillStyle(0xffd38a, 0.9);
+                decor.fillCircle(door.x + 6, door.y - 12, 2);
+                decor.fillStyle(0xfff2b0, 0.7);
+                decor.fillRect(door.x - 16, door.y - 10, 32, 10);
+                decor.fillCircle(door.x - 8, door.y - 12, 3);
+                decor.fillCircle(door.x + 8, door.y - 12, 3);
             }
         };
 
-        drawBuilding3D(8 * TILE_SIZE, 8 * TILE_SIZE, 7 * TILE_SIZE, 5 * TILE_SIZE, 0x7e6b57, 0x927f69, "bottom");
-        drawBuilding3D(30 * TILE_SIZE, 10 * TILE_SIZE, 7 * TILE_SIZE, 7 * TILE_SIZE, 0x6f7e65, 0x859179, "left");
-        drawBuilding3D(31 * TILE_SIZE, 30 * TILE_SIZE, 5 * TILE_SIZE, 5 * TILE_SIZE, 0x8d7b66, 0xa28f79, "bottom");
-
-        for (const door of this.buildingDoors) {
-            decor.fillStyle(0xffd166, 0.88);
-            decor.fillRect(door.x - 16, door.y - 10, 32, 10);
-            decor.fillStyle(0xfff2b0, 0.7);
-            decor.fillCircle(door.x - 8, door.y - 12, 3);
-            decor.fillCircle(door.x + 8, door.y - 12, 3);
+        for (const b of this.buildings) {
+            drawBuilding3D(b);
         }
 
-        decor.fillStyle(0xcabfab, 0.55);
-        decor.fillRect(0, 21 * TILE_SIZE, WORLD_SIZE, 6);
-        decor.fillRect(0, 25 * TILE_SIZE - 6, WORLD_SIZE, 6);
-        decor.fillRect(21 * TILE_SIZE, 0, 6, WORLD_SIZE);
-        decor.fillRect(25 * TILE_SIZE - 6, 0, 6, WORLD_SIZE);
+        for (let i = 0; i < WORLD_SIZE; i += 240) {
+            decor.fillStyle(0xcabfab, 0.6);
+            decor.fillRect(i, 21 * TILE_SIZE, 120, 6);
+            decor.fillRect(i, 25 * TILE_SIZE - 6, 120, 6);
+            decor.fillRect(21 * TILE_SIZE, i, 6, 120);
+            decor.fillRect(25 * TILE_SIZE - 6, i, 6, 120);
 
-        for (let x = 0; x < WORLD_SIZE; x += 180) {
             decor.fillStyle(0xf6f0ce, 0.65);
-            decor.fillRect(x + 36, 23 * TILE_SIZE - 2, 18, 4);
+            decor.fillRect(i + 36, 23 * TILE_SIZE - 2, 18, 4);
+            decor.fillRect(23 * TILE_SIZE - 2, i + 36, 4, 18);
         }
 
         const tree = (x, y) => {
@@ -244,12 +254,65 @@ export class WorldScene extends Phaser.Scene {
             decor.fillCircle(x + 10, y + 6, 10);
         };
 
-        tree(17 * TILE_SIZE, 17 * TILE_SIZE);
-        tree(26 * TILE_SIZE, 17 * TILE_SIZE);
-        tree(17 * TILE_SIZE, 28 * TILE_SIZE);
-        tree(26 * TILE_SIZE, 28 * TILE_SIZE);
+        const treePoints = [
+            [17, 17], [26, 17], [17, 28], [26, 28], [38, 20], [41, 28], [10, 47], [54, 45], [48, 8]
+        ];
+        for (const [tx, ty] of treePoints) {
+            tree(tx * TILE_SIZE, ty * TILE_SIZE);
+        }
 
         decor.setDepth(600);
+    }
+
+    createInteriorDistrict() {
+        this.interiorWalls = this.physics.add.staticGroup();
+        const baseRooms = [
+            { id: "home_a", x: 3520, y: 300, w: 440, h: 320 },
+            { id: "home_b", x: 4020, y: 300, w: 440, h: 320 },
+            { id: "home_c", x: 3520, y: 700, w: 440, h: 320 },
+            { id: "home_d", x: 4020, y: 700, w: 440, h: 320 },
+            { id: "home_e", x: 3520, y: 1100, w: 440, h: 320 },
+            { id: "home_f", x: 4020, y: 1100, w: 440, h: 320 }
+        ];
+
+        for (const room of baseRooms) {
+            const door = this.buildingDoors.find((d) => d.id === room.id);
+            if (!door) {
+                continue;
+            }
+
+            const floor = this.add.rectangle(room.x + room.w / 2, room.y + room.h / 2, room.w, room.h, 0xa68d7a, 0.9).setDepth(620);
+            const rug = this.add.rectangle(room.x + room.w / 2, room.y + room.h / 2, room.w - 90, room.h - 110, 0xc36f5e, 0.7).setDepth(621);
+            const couch = this.add.rectangle(room.x + 100, room.y + 90, 120, 34, 0x5f697e).setDepth(622);
+            const table = this.add.rectangle(room.x + room.w - 110, room.y + room.h - 90, 90, 44, 0x6d4f3d).setDepth(622);
+            const exitGlow = this.add.rectangle(room.x + room.w / 2, room.y + room.h - 20, 76, 12, 0xffe2a1, 0.9).setDepth(623);
+
+            const top = this.add.rectangle(room.x + room.w / 2, room.y + 8, room.w, 16, 0x4e4034).setDepth(624);
+            const bottom = this.add.rectangle(room.x + room.w / 2, room.y + room.h - 8, room.w, 16, 0x4e4034).setDepth(624);
+            const left = this.add.rectangle(room.x + 8, room.y + room.h / 2, 16, room.h, 0x4e4034).setDepth(624);
+            const right = this.add.rectangle(room.x + room.w - 8, room.y + room.h / 2, 16, room.h, 0x4e4034).setDepth(624);
+
+            this.physics.add.existing(top, true);
+            this.physics.add.existing(bottom, true);
+            this.physics.add.existing(left, true);
+            this.physics.add.existing(right, true);
+
+            this.interiorWalls.add(top);
+            this.interiorWalls.add(bottom);
+            this.interiorWalls.add(left);
+            this.interiorWalls.add(right);
+
+            this.interiors[room.id] = {
+                id: room.id,
+                spawnX: room.x + room.w / 2,
+                spawnY: room.y + room.h / 2,
+                exitX: room.x + room.w / 2,
+                exitY: room.y + room.h - 24,
+                outsideX: door.returnX,
+                outsideY: door.returnY,
+                visuals: [floor, rug, couch, table, exitGlow]
+            };
+        }
     }
 
     createVehicles() {
@@ -264,10 +327,7 @@ export class WorldScene extends Phaser.Scene {
                 passengerId: null
             };
 
-            this.localVehiclePhysics[config.id] = {
-                speed: 0,
-                angle: 0
-            };
+            this.localVehiclePhysics[config.id] = { speed: 0, angle: 0 };
 
             const shadow = this.add.ellipse(0, 9, 76, 22, 0x000000, 0.28).setDepth(880);
             const body = this.add.rectangle(0, 0, 72, 36, config.body, 1).setDepth(890);
@@ -307,8 +367,7 @@ export class WorldScene extends Phaser.Scene {
                 container,
                 lightL,
                 lightR,
-                shadow,
-                wheels: [wheelFL, wheelFR, wheelBL, wheelBR]
+                shadow
             };
         }
     }
@@ -334,14 +393,10 @@ export class WorldScene extends Phaser.Scene {
 
     createInput() {
         this.keys = this.input.keyboard.addKeys({
-            up: Phaser.Input.Keyboard.KeyCodes.W,
-            down: Phaser.Input.Keyboard.KeyCodes.S,
-            left: Phaser.Input.Keyboard.KeyCodes.A,
-            right: Phaser.Input.Keyboard.KeyCodes.D,
-            up2: Phaser.Input.Keyboard.KeyCodes.UP,
-            down2: Phaser.Input.Keyboard.KeyCodes.DOWN,
-            left2: Phaser.Input.Keyboard.KeyCodes.LEFT,
-            right2: Phaser.Input.Keyboard.KeyCodes.RIGHT,
+            up: Phaser.Input.Keyboard.KeyCodes.UP,
+            down: Phaser.Input.Keyboard.KeyCodes.DOWN,
+            left: Phaser.Input.Keyboard.KeyCodes.LEFT,
+            right: Phaser.Input.Keyboard.KeyCodes.RIGHT,
             exitCar: Phaser.Input.Keyboard.KeyCodes.X
         });
 
@@ -357,7 +412,13 @@ export class WorldScene extends Phaser.Scene {
         const spawn = this.scene.settings.data?.spawn || { x: 500, y: 500 };
         this.localPlayer = new PlayerEntity(this, spawn.x, spawn.y, "player", 0, "local", "You", true);
         this.physics.add.collider(this.localPlayer.sprite, this.blockLayer);
+        this.physics.add.collider(this.localPlayer.sprite, this.interiorWalls);
         this.cameras.main.startFollow(this.localPlayer.sprite, true, 0.16, 0.16);
+    }
+
+    createPlayerIndicator() {
+        this.playerIndicator = this.add.triangle(0, 0, 0, 10, 8, -6, -8, -6, 0xffeb7a, 1).setDepth(2200);
+        this.playerIndicator.setStrokeStyle(2, 0x4d2f20, 0.9);
     }
 
     setupNetworking() {
@@ -398,10 +459,7 @@ export class WorldScene extends Phaser.Scene {
                 }
 
                 const isLocalDriver = this.getDrivingVehicleId() === state.id;
-                const merged = {
-                    ...this.vehicleStates[state.id],
-                    ...state
-                };
+                const merged = { ...this.vehicleStates[state.id], ...state };
 
                 if (isLocalDriver) {
                     merged.x = this.vehicleStates[state.id].x;
@@ -457,7 +515,6 @@ export class WorldScene extends Phaser.Scene {
             this.socketAdapter.chat(msg);
             this.chatInput.value = "";
         };
-
         this.chatForm.addEventListener("submit", this.chatHandler);
     }
 
@@ -471,7 +528,6 @@ export class WorldScene extends Phaser.Scene {
                     this.socketAdapter.chat(emoji);
                 }
             };
-
             button.addEventListener("click", handler);
             this.emojiHandlers.push({ button, handler });
         }
@@ -534,7 +590,6 @@ export class WorldScene extends Phaser.Scene {
         this.restartHandler = () => {
             window.location.reload();
         };
-
         this.hud.restartButton.addEventListener("click", this.restartHandler);
     }
 
@@ -563,6 +618,7 @@ export class WorldScene extends Phaser.Scene {
 
                 this.players.set(id, entity);
                 this.physics.add.collider(entity.sprite, this.blockLayer);
+                this.physics.add.collider(entity.sprite, this.interiorWalls);
 
                 const pending = this.pendingBubbles.get(id);
                 if (pending) {
@@ -601,14 +657,6 @@ export class WorldScene extends Phaser.Scene {
         const dt = delta / 1000;
         this.localPlayer.setHasFlower(this.localHasFlower);
 
-        if (this.isTransitioning) {
-            this.updateVehicleVisual();
-            this.updateVillains(dt);
-            this.updateFlowerVisual();
-            this.updateDayNight(time);
-            return;
-        }
-
         if (!this.isGameOver) {
             if (this.getDrivingVehicleId()) {
                 this.updateDrivingMovement(dt, time);
@@ -627,6 +675,7 @@ export class WorldScene extends Phaser.Scene {
         this.updateFlowerVisual();
         this.updateInteractionButtons();
         this.updateCameraTarget();
+        this.updatePlayerIndicator(time);
         this.updateDayNight(time);
         this.updateLoveMeter();
 
@@ -651,16 +700,16 @@ export class WorldScene extends Phaser.Scene {
         let moveX = 0;
         let moveY = 0;
 
-        if (this.keys.left.isDown || this.keys.left2.isDown) {
+        if (this.keys.left.isDown) {
             moveX -= 1;
         }
-        if (this.keys.right.isDown || this.keys.right2.isDown) {
+        if (this.keys.right.isDown) {
             moveX += 1;
         }
-        if (this.keys.up.isDown || this.keys.up2.isDown) {
+        if (this.keys.up.isDown) {
             moveY -= 1;
         }
-        if (this.keys.down.isDown || this.keys.down2.isDown) {
+        if (this.keys.down.isDown) {
             moveY += 1;
         }
 
@@ -704,6 +753,15 @@ export class WorldScene extends Phaser.Scene {
         this.localPlayer.syncVisuals();
     }
 
+    carHitsBuilding(x, y) {
+        for (const r of this.buildingRects) {
+            if (x > r.x - 34 && x < r.x + r.w + 34 && y > r.y - 24 && y < r.y + r.h + 24) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     updateDrivingMovement(dt, time) {
         const vehicleId = this.getDrivingVehicleId();
         if (!vehicleId) {
@@ -716,17 +774,23 @@ export class WorldScene extends Phaser.Scene {
         let throttle = 0;
         let steer = 0;
 
-        if (this.keys.up.isDown || this.keys.up2.isDown) {
+        if (this.keys.up.isDown) {
             throttle += 1;
         }
-        if (this.keys.down.isDown || this.keys.down2.isDown) {
+        if (this.keys.down.isDown) {
             throttle -= 1;
         }
-        if (this.keys.left.isDown || this.keys.left2.isDown) {
+        if (this.keys.left.isDown) {
             steer -= 1;
         }
-        if (this.keys.right.isDown || this.keys.right2.isDown) {
+        if (this.keys.right.isDown) {
             steer += 1;
+        }
+
+        if (this.joystick) {
+            const j = this.joystick.getVector();
+            throttle += -j.y;
+            steer += j.x;
         }
 
         throttle += -this.drivePadVector.y;
@@ -738,29 +802,29 @@ export class WorldScene extends Phaser.Scene {
         if (Math.abs(throttle) > 0.02) {
             physics.speed += throttle * CAR_ACCEL * dt;
         } else {
-            physics.speed = Phaser.Math.Linear(physics.speed, 0, Math.min(1, dt * 2.2));
-        }
-
-        if (Math.sign(throttle) !== 0 && Math.sign(throttle) !== Math.sign(physics.speed)) {
-            physics.speed = Phaser.Math.Linear(physics.speed, 0, Math.min(1, dt * 3.4));
+            physics.speed = Phaser.Math.Linear(physics.speed, 0, Math.min(1, dt * 2.5));
         }
 
         physics.speed = clamp(physics.speed, CAR_MAX_REVERSE, CAR_MAX_FORWARD);
 
         if (Math.abs(throttle) < 0.05 && Math.abs(physics.speed) > 0.01) {
             const drag = CAR_BRAKE * dt * Math.sign(physics.speed);
-            if (Math.abs(drag) > Math.abs(physics.speed)) {
-                physics.speed = 0;
-            } else {
-                physics.speed -= drag;
-            }
+            physics.speed = Math.abs(drag) > Math.abs(physics.speed) ? 0 : physics.speed - drag;
         }
 
-        const turnScale = clamp(Math.abs(physics.speed) / 240, 0.2, 1.6);
-        physics.angle += steer * 2.1 * turnScale * dt * (physics.speed >= 0 ? 1 : -1);
+        const turnScale = clamp(Math.abs(physics.speed) / 220, 0.25, 1.7);
+        physics.angle += steer * 2.3 * turnScale * dt * (physics.speed >= 0 ? 1 : -1);
 
-        state.x = clamp(state.x + Math.cos(physics.angle) * physics.speed * dt, 60, WORLD_SIZE - 60);
-        state.y = clamp(state.y + Math.sin(physics.angle) * physics.speed * dt, 60, WORLD_SIZE - 60);
+        const nextX = clamp(state.x + Math.cos(physics.angle) * physics.speed * dt, 60, WORLD_SIZE - 60);
+        const nextY = clamp(state.y + Math.sin(physics.angle) * physics.speed * dt, 60, WORLD_SIZE - 60);
+
+        if (!this.carHitsBuilding(nextX, nextY)) {
+            state.x = nextX;
+            state.y = nextY;
+        } else {
+            physics.speed *= -0.12;
+        }
+
         state.angle = physics.angle;
         state.speed = physics.speed;
 
@@ -829,7 +893,7 @@ export class WorldScene extends Phaser.Scene {
 
             const localSeat = this.getLocalSeat();
             const localDrivingThis = localSeat?.vehicleId === id && localSeat.role === "driver";
-            const lerp = localDrivingThis ? 0.5 : 0.22;
+            const lerp = localDrivingThis ? 0.55 : 0.22;
 
             render.x = Phaser.Math.Linear(render.x, state.x, lerp);
             render.y = Phaser.Math.Linear(render.y, state.y, lerp);
@@ -837,7 +901,7 @@ export class WorldScene extends Phaser.Scene {
 
             sprite.container.setPosition(render.x, render.y);
             sprite.container.setRotation(render.angle);
-            sprite.shadow.setScale(1 + Math.abs(state.speed) / 620, 1);
+            sprite.shadow.setScale(1 + Math.abs(state.speed) / 560, 1);
 
             const bright = state.driverId ? 1 : 0.55;
             sprite.lightL.setAlpha(bright);
@@ -846,6 +910,25 @@ export class WorldScene extends Phaser.Scene {
     }
 
     updateVillains(dt) {
+        if (this.isInInterior) {
+            for (const villain of this.villains) {
+                villain.active = false;
+                villain.targetId = null;
+                const homeDist = Phaser.Math.Distance.Between(villain.x, villain.y, villain.homeX, villain.homeY);
+                if (homeDist > 3) {
+                    const dir = new Phaser.Math.Vector2(villain.homeX - villain.x, villain.homeY - villain.y).normalize();
+                    villain.x += dir.x * 110 * dt;
+                    villain.y += dir.y * 110 * dt;
+                }
+
+                villain.shadow.setPosition(villain.x, villain.y + 10);
+                villain.body.setPosition(villain.x, villain.y);
+                villain.head.setPosition(villain.x, villain.y - 18);
+                villain.eye.setPosition(villain.x + 2, villain.y - 18);
+            }
+            return;
+        }
+
         const localPos = this.getPlayerWorldPosition(this.socketAdapter.id);
 
         for (const villain of this.villains) {
@@ -862,7 +945,7 @@ export class WorldScene extends Phaser.Scene {
 
                 for (const id of this.getAllTrackedPlayerIds()) {
                     const pos = this.getPlayerWorldPosition(id);
-                    if (!pos) {
+                    if (!pos || pos.inInterior) {
                         continue;
                     }
 
@@ -881,12 +964,11 @@ export class WorldScene extends Phaser.Scene {
 
             if (villain.active && villain.targetId) {
                 const pos = this.getPlayerWorldPosition(villain.targetId);
-                if (!pos) {
+                if (!pos || pos.inInterior) {
                     villain.active = false;
                     villain.targetId = null;
                 } else {
                     const dist = Phaser.Math.Distance.Between(villain.x, villain.y, pos.x, pos.y);
-
                     if (pos.inVehicle && dist > 350) {
                         villain.active = false;
                         villain.targetId = null;
@@ -911,7 +993,7 @@ export class WorldScene extends Phaser.Scene {
             villain.head.setPosition(villain.x, villain.y - 18);
             villain.eye.setPosition(villain.x + 2, villain.y - 18);
 
-            if (!this.isGameOver && localPos) {
+            if (!this.isGameOver && localPos && !localPos.inInterior) {
                 const dLocal = Phaser.Math.Distance.Between(villain.x, villain.y, localPos.x, localPos.y);
                 if (dLocal < 24) {
                     this.triggerGameOver();
@@ -936,6 +1018,10 @@ export class WorldScene extends Phaser.Scene {
         }
 
         if (playerId === this.socketAdapter.id) {
+            if (this.isInInterior) {
+                return { x: this.localPlayer.sprite.x, y: this.localPlayer.sprite.y, inVehicle: false, inInterior: true };
+            }
+
             if (this.isLocalInVehicle()) {
                 const seat = this.getLocalSeat();
                 const state = seat ? this.vehicleStates[seat.vehicleId] : null;
@@ -944,17 +1030,18 @@ export class WorldScene extends Phaser.Scene {
                 }
 
                 if (seat.role === "driver") {
-                    return { x: state.x, y: state.y, inVehicle: true };
+                    return { x: state.x, y: state.y, inVehicle: true, inInterior: false };
                 }
 
                 return {
                     x: state.x - Math.cos(state.angle) * 20 - Math.sin(state.angle) * 16,
                     y: state.y - Math.sin(state.angle) * 20 + Math.cos(state.angle) * 16,
-                    inVehicle: true
+                    inVehicle: true,
+                    inInterior: false
                 };
             }
 
-            return { x: this.localPlayer.sprite.x, y: this.localPlayer.sprite.y, inVehicle: false };
+            return { x: this.localPlayer.sprite.x, y: this.localPlayer.sprite.y, inVehicle: false, inInterior: false };
         }
 
         const p = this.playerList[playerId];
@@ -962,7 +1049,7 @@ export class WorldScene extends Phaser.Scene {
             return null;
         }
 
-        return { x: p.x, y: p.y, inVehicle: Boolean(p.inVehicle) };
+        return { x: p.x, y: p.y, inVehicle: Boolean(p.inVehicle), inInterior: false };
     }
 
     triggerGameOver() {
@@ -1041,6 +1128,16 @@ export class WorldScene extends Phaser.Scene {
         let nearest = null;
         let nearestDist = maxDistance;
 
+        if (this.isInInterior && this.currentInterior) {
+            const dist = Phaser.Math.Distance.Between(
+                this.localPlayer.sprite.x,
+                this.localPlayer.sprite.y,
+                this.currentInterior.exitX,
+                this.currentInterior.exitY
+            );
+            return dist < maxDistance ? { id: this.currentInterior.id, interiorExit: true } : null;
+        }
+
         for (const door of this.buildingDoors) {
             const dist = Phaser.Math.Distance.Between(this.localPlayer.sprite.x, this.localPlayer.sprite.y, door.x, door.y);
             if (dist < nearestDist) {
@@ -1059,19 +1156,28 @@ export class WorldScene extends Phaser.Scene {
         }
 
         const coarse = window.matchMedia("(pointer: coarse)").matches;
-        this.hud.showDrivePad(coarse && Boolean(this.getDrivingVehicleId()));
+        this.hud.showDrivePad(false);
 
         const seat = this.getLocalSeat();
+        this.nearDoor = this.getNearbyDoor(84);
+
+        if (this.isInInterior) {
+            this.hud.showAction("drive", false);
+            this.hud.showAction("sit", false);
+            this.hud.showAction("exitCar", false);
+            this.hud.showAction("openDoor", Boolean(this.nearDoor));
+            this.hud.showAction("pickFlower", false);
+            this.hud.showAction("giveFlower", false);
+            this.hud.showAction("acceptFlower", false);
+            return;
+        }
+
         const freeCar = this.getNearestVehicle(120, (v) => !v.driverId);
         const rideCar = this.getNearestVehicle(120, (v) => v.driverId && !v.passengerId && v.driverId !== this.socketAdapter.id);
-
-        this.actionVehicleId = freeCar?.id || rideCar?.id || null;
 
         this.hud.showAction("drive", Boolean(freeCar) && !seat);
         this.hud.showAction("sit", Boolean(rideCar) && !seat);
         this.hud.showAction("exitCar", Boolean(seat));
-
-        this.nearDoor = this.getNearbyDoor(84);
         this.hud.showAction("openDoor", Boolean(this.nearDoor) && !seat);
 
         const nearFlower = Phaser.Math.Distance.Between(
@@ -1087,6 +1193,10 @@ export class WorldScene extends Phaser.Scene {
         this.giveTargetId = targetId;
         this.hud.showAction("giveFlower", Boolean(targetId) && this.localHasFlower && !seat);
         this.hud.showAction("acceptFlower", Boolean(this.pendingFlowerOfferFrom));
+
+        if (coarse && this.getDrivingVehicleId()) {
+            this.hud.setMission("Use joystick to drive the car");
+        }
     }
 
     findNearbyPlayerId(maxDistance) {
@@ -1111,7 +1221,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     tryDrive() {
-        if (this.isGameOver || this.isLocalInVehicle()) {
+        if (this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
             return;
         }
 
@@ -1123,11 +1233,11 @@ export class WorldScene extends Phaser.Scene {
         this.localVehiclePhysics[vehicle.id].speed = 0;
         this.localVehiclePhysics[vehicle.id].angle = vehicle.angle;
         this.socketAdapter.vehicleAction({ action: "drive", vehicleId: vehicle.id });
-        this.hud.setMission(`Driving ${vehicle.id === "car_pink" ? "pink" : "red"} car. Avoid villains.`);
+        this.hud.setMission(`Driving ${vehicle.id === "car_pink" ? "pink" : "red"} car. Use joystick/arrows.`);
     }
 
     trySit() {
-        if (this.isGameOver || this.isLocalInVehicle()) {
+        if (this.isGameOver || this.isInInterior || this.isLocalInVehicle()) {
             return;
         }
 
@@ -1154,17 +1264,55 @@ export class WorldScene extends Phaser.Scene {
     }
 
     openDoor() {
-        if (this.isGameOver || this.isTransitioning) {
+        if (this.isGameOver || this.isLocalInVehicle()) {
             return;
         }
 
-        if (this.nearDoor && !this.isLocalInVehicle()) {
-            this.enterHouse(this.nearDoor);
+        if (!this.nearDoor) {
+            return;
         }
+
+        if (this.isInInterior) {
+            this.exitInterior();
+            return;
+        }
+
+        this.enterInterior(this.nearDoor);
+    }
+
+    enterInterior(door) {
+        const interior = this.interiors[door.id];
+        if (!interior) {
+            return;
+        }
+
+        this.isInInterior = true;
+        this.currentInterior = interior;
+        this.localPlayer.setVelocity(0, 0);
+        this.localPlayer.sprite.setPosition(interior.spawnX, interior.spawnY);
+        this.localPlayer.lastState.x = interior.spawnX;
+        this.localPlayer.lastState.y = interior.spawnY;
+        this.localPlayer.syncVisuals();
+        this.hud.setMission(`Inside ${door.id.replace("home_", "building ").toUpperCase()} - find exit door`);
+    }
+
+    exitInterior() {
+        if (!this.currentInterior) {
+            return;
+        }
+
+        this.localPlayer.setVelocity(0, 0);
+        this.localPlayer.sprite.setPosition(this.currentInterior.outsideX, this.currentInterior.outsideY);
+        this.localPlayer.lastState.x = this.currentInterior.outsideX;
+        this.localPlayer.lastState.y = this.currentInterior.outsideY;
+        this.localPlayer.syncVisuals();
+        this.isInInterior = false;
+        this.currentInterior = null;
+        this.hud.setMission("Back outside. Explore the city.");
     }
 
     pickFlower() {
-        if (this.isGameOver || this.localHasFlower) {
+        if (this.isGameOver || this.localHasFlower || this.isInInterior) {
             return;
         }
 
@@ -1213,13 +1361,7 @@ export class WorldScene extends Phaser.Scene {
         if (seat) {
             const vehicle = this.vehicleStates[seat.vehicleId];
             if (seat.role === "driver") {
-                baseState = {
-                    x: vehicle.x,
-                    y: vehicle.y,
-                    direction: angleToDirection(vehicle.angle),
-                    animState: "idle",
-                    frame: 0
-                };
+                baseState = { x: vehicle.x, y: vehicle.y, direction: angleToDirection(vehicle.angle), animState: "idle", frame: 0 };
             } else {
                 baseState = {
                     x: vehicle.x - Math.cos(vehicle.angle) * 20 - Math.sin(vehicle.angle) * 16,
@@ -1284,6 +1426,16 @@ export class WorldScene extends Phaser.Scene {
         }
     }
 
+    updatePlayerIndicator(time) {
+        const seat = this.getLocalSeat();
+        if (seat) {
+            const v = this.vehicleStates[seat.vehicleId];
+            this.playerIndicator.setPosition(v.x, v.y - 44 - Math.sin(time / 180) * 3);
+        } else {
+            this.playerIndicator.setPosition(this.localPlayer.sprite.x, this.localPlayer.sprite.y - 44 - Math.sin(time / 180) * 3);
+        }
+    }
+
     createDayNightOverlay() {
         this.dayNight = this.add.rectangle(0, 0, WORLD_SIZE, WORLD_SIZE, 0x0a1130, 0.1);
         this.dayNight.setOrigin(0, 0);
@@ -1301,12 +1453,7 @@ export class WorldScene extends Phaser.Scene {
         let nearest = 99999;
 
         for (const p of this.players.values()) {
-            const d = Phaser.Math.Distance.Between(
-                this.localPlayer.sprite.x,
-                this.localPlayer.sprite.y,
-                p.sprite.x,
-                p.sprite.y
-            );
+            const d = Phaser.Math.Distance.Between(this.localPlayer.sprite.x, this.localPlayer.sprite.y, p.sprite.x, p.sprite.y);
             nearest = Math.min(nearest, d);
         }
 
@@ -1315,28 +1462,8 @@ export class WorldScene extends Phaser.Scene {
         this.hud.setLove(Math.round(meter));
 
         if (meter > 70 && !this.isGameOver) {
-            this.hud.setMission("Strong bond. Explore and survive together.");
+            this.hud.setMission(this.isInInterior ? "Safe inside building" : "Strong bond. Explore and survive together.");
         }
-    }
-
-    enterHouse(door) {
-        if (!door || this.isTransitioning) {
-            return;
-        }
-
-        this.isTransitioning = true;
-        this.localPlayer.setVelocity(0, 0);
-        this.hud.showAction("openDoor", false);
-        this.hud.setMission("Entering building...");
-
-        this.time.delayedCall(120, () => {
-            this.scene.start("InteriorScene", {
-                returnX: door.returnX,
-                returnY: door.returnY,
-                buildingId: door.id,
-                theme: door.interiorTheme
-            });
-        });
     }
 
     cleanup() {
@@ -1387,9 +1514,12 @@ export class WorldScene extends Phaser.Scene {
         }
         this.players.clear();
 
+        if (this.playerIndicator) {
+            this.playerIndicator.destroy();
+        }
+
         this.hud.showDrivePad(false);
         this.hud.showGameOver(false);
-        this.isTransitioning = false;
         for (const name of Object.keys(this.hud.buttons)) {
             this.hud.showAction(name, false);
         }

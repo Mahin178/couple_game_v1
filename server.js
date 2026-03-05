@@ -3,6 +3,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const MAX_PLAYERS = 4;
+const WORLD_SIZE = 4608;
 
 const app = express();
 const server = http.createServer(app);
@@ -186,8 +187,8 @@ io.on("connection", (socket) => {
             return;
         }
 
-        vehicle.x = clamp(Number(data.x) || vehicle.x, 80, 2992);
-        vehicle.y = clamp(Number(data.y) || vehicle.y, 80, 2992);
+        vehicle.x = clamp(Number(data.x) || vehicle.x, 80, WORLD_SIZE - 80);
+        vehicle.y = clamp(Number(data.y) || vehicle.y, 80, WORLD_SIZE - 80);
         vehicle.angle = Number.isFinite(data.angle) ? data.angle : vehicle.angle;
         vehicle.speed = Number.isFinite(data.speed) ? data.speed : vehicle.speed;
 

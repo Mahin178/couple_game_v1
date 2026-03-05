@@ -92,7 +92,6 @@ export class InteriorScene extends Phaser.Scene {
         }
 
         this.cursors = this.input.keyboard.createCursorKeys();
-        this.wasd = this.input.keyboard.addKeys("W,S,A,D");
         this.cameras.main.startFollow(this.player.sprite, true, 0.12, 0.12);
     }
 
@@ -115,10 +114,10 @@ export class InteriorScene extends Phaser.Scene {
     }
 
     update() {
-        const left = this.cursors.left.isDown || this.wasd.A.isDown;
-        const right = this.cursors.right.isDown || this.wasd.D.isDown;
-        const up = this.cursors.up.isDown || this.wasd.W.isDown;
-        const down = this.cursors.down.isDown || this.wasd.S.isDown;
+        const left = this.cursors.left.isDown;
+        const right = this.cursors.right.isDown;
+        const up = this.cursors.up.isDown;
+        const down = this.cursors.down.isDown;
 
         const vec = new Phaser.Math.Vector2((right ? 1 : 0) - (left ? 1 : 0), (down ? 1 : 0) - (up ? 1 : 0));
         if (vec.lengthSq() > 1) {
