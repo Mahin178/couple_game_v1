@@ -119,6 +119,7 @@ export class WorldScene extends Phaser.Scene {
         this.isFullMapOpen = false;
         this.mapOpenHandler = null;
         this.mapCloseHandler = null;
+        this.isChatTyping = false;
     }
 
     create() {
@@ -581,6 +582,7 @@ export class WorldScene extends Phaser.Scene {
             matSteel: Phaser.Input.Keyboard.KeyCodes.FOUR,
             handBrake: Phaser.Input.Keyboard.KeyCodes.SPACE
         });
+        this.input.keyboard.disableGlobalCapture();
 
         this.isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
         this.localDisplayName = this.isTouchDevice ? "wife" : "husband";
@@ -758,7 +760,15 @@ export class WorldScene extends Phaser.Scene {
                 this.setMobileChatOpen(false);
             }
         };
+        this.chatFocusHandler = () => {
+            this.isChatTyping = true;
+        };
+        this.chatBlurHandler = () => {
+            this.isChatTyping = false;
+        };
         this.chatForm.addEventListener("submit", this.chatHandler);
+        this.chatInput.addEventListener("focus", this.chatFocusHandler);
+        this.chatInput.addEventListener("blur", this.chatBlurHandler);
     }
 
     bindEmojiButtons() {
@@ -1146,7 +1156,12 @@ export class WorldScene extends Phaser.Scene {
 
     isTypingInChat() {
         const active = document.activeElement;
-        return active === this.chatInput;
+        const focusedInput =
+            active === this.chatInput ||
+            active?.tagName === "TEXTAREA" ||
+            (active?.tagName === "INPUT" && active?.type !== "button") ||
+            active?.isContentEditable;
+        return this.isChatTyping || Boolean(focusedInput);
     }
 
     updateLocalMovement(time) {
@@ -2406,6 +2421,12 @@ export class WorldScene extends Phaser.Scene {
 
         if (this.chatForm && this.chatHandler) {
             this.chatForm.removeEventListener("submit", this.chatHandler);
+        }
+        if (this.chatInput && this.chatFocusHandler) {
+            this.chatInput.removeEventListener("focus", this.chatFocusHandler);
+        }
+        if (this.chatInput && this.chatBlurHandler) {
+            this.chatInput.removeEventListener("blur", this.chatBlurHandler);
         }
 
         if (this.hud.restartButton && this.restartHandler) {

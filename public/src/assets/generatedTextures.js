@@ -16,7 +16,13 @@ function drawBody(ctx, frameX, frameY, bodyColor, direction, phase) {
     }
 
     ctx.fillStyle = bodyColor;
-    ctx.fillRect(ox + 8, oy + 11, 16, 13);
+    if (isWifeVariant) {
+        ctx.fillRect(ox + 9, oy + 11, 14, 9);
+        ctx.fillRect(ox + 7, oy + 20, 18, 4);
+    } else {
+        ctx.fillRect(ox + 7, oy + 11, 18, 11);
+        ctx.fillRect(ox + 8, oy + 22, 16, 2);
+    }
     ctx.fillStyle = isWifeVariant ? "#ffd7e7" : "#d5e3ff";
     ctx.fillRect(ox + 10, oy + 14, 12, 3);
     ctx.fillStyle = "#2a2a2a";
@@ -64,6 +70,10 @@ function drawBody(ctx, frameX, frameY, bodyColor, direction, phase) {
         ctx.fillRect(ox + 17, oy + 8, 2, 2);
         ctx.fillStyle = isWifeVariant ? "#d7688e" : "#b9826f";
         ctx.fillRect(ox + 14, oy + 10, 4, 1);
+        if (!isWifeVariant) {
+            ctx.fillStyle = "#6f4938";
+            ctx.fillRect(ox + 13, oy + 11, 6, 1);
+        }
     } else if (direction === "left") {
         ctx.fillRect(ox + 12, oy + 8, 2, 2);
     } else if (direction === "right") {
@@ -124,29 +134,55 @@ export function createTilesDataURL() {
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
 
+    // Grass with richer 2.5D texture.
     ctx.fillStyle = "#2d6f3a";
     ctx.fillRect(0, 0, size, size);
     ctx.fillStyle = "#3f874d";
-    for (let i = 0; i < 7; i += 1) {
-        ctx.fillRect(i * 9, (i * 13) % 60, 3, 3);
+    for (let i = 0; i < 22; i += 1) {
+        ctx.fillRect((i * 11) % 62, (i * 17) % 62, 2, 2);
+    }
+    ctx.fillStyle = "#234f2f";
+    for (let i = 0; i < 11; i += 1) {
+        ctx.fillRect((i * 19) % 62, (i * 23) % 62, 1, 3);
     }
 
+    // Road with edge shading and lane line.
     ctx.fillStyle = "#4b4b4f";
     ctx.fillRect(size, 0, size, size);
+    ctx.fillStyle = "#3e3e42";
+    ctx.fillRect(size, 0, 4, size);
+    ctx.fillRect(size + size - 4, 0, 4, size);
     ctx.fillStyle = "#f2f2d4";
     ctx.fillRect(size + 28, 0, 8, size);
+    ctx.fillStyle = "#2f2f33";
+    for (let y = 0; y < size; y += 8) {
+        ctx.fillRect(size + 12, y, 2, 4);
+        ctx.fillRect(size + 50, y + 4, 2, 4);
+    }
 
+    // Building blocker texture 1.
     ctx.fillStyle = "#7e6b57";
     ctx.fillRect(size * 2, 0, size, size);
     ctx.fillStyle = "#8d7a63";
-    for (let y = 0; y < size; y += 16) {
+    for (let y = 0; y < size; y += 12) {
         ctx.fillRect(size * 2, y, size, 2);
     }
+    ctx.fillStyle = "#6f5e4c";
+    for (let x = 0; x < size; x += 16) {
+        ctx.fillRect(size * 2 + x, 0, 2, size);
+    }
 
+    // Building blocker texture 2 with faux roof highlight.
     ctx.fillStyle = "#b9a48e";
     ctx.fillRect(size * 3, 0, size, size);
     ctx.fillStyle = "#a0866c";
     ctx.fillRect(size * 3 + 10, 12, 44, 40);
+    ctx.fillStyle = "#cbb7a2";
+    ctx.fillRect(size * 3, 0, size, 7);
+    ctx.fillStyle = "#8f775f";
+    for (let i = 0; i < 6; i += 1) {
+        ctx.fillRect(size * 3 + 8 + i * 9, 12, 2, 40);
+    }
 
     return canvas.toDataURL("image/png");
 }
