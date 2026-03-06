@@ -182,6 +182,7 @@ export class WorldScene extends Phaser.Scene {
         this.createZombies();
         this.createSoundSystem();
         this.createInput();
+        this.tunePhysics();
         this.createLocalPlayer();
         this.createPlayerIndicator();
         this.setupNetworking();
@@ -207,6 +208,24 @@ export class WorldScene extends Phaser.Scene {
 
     setMission(text) {
         this.lastMission = text;
+    }
+
+    tunePhysics() {
+        const world = this.physics.world;
+        if (!world) {
+            return;
+        }
+
+        if (typeof world.setFPS === "function") {
+            world.setFPS(this.isTouchDevice ? 58 : 60);
+        }
+        world.useTree = true;
+        if (Object.prototype.hasOwnProperty.call(world, "OVERLAP_BIAS")) {
+            world.OVERLAP_BIAS = 8;
+        }
+        if (Object.prototype.hasOwnProperty.call(world, "TILE_BIAS")) {
+            world.TILE_BIAS = 20;
+        }
     }
 
     createMap() {
@@ -285,6 +304,60 @@ export class WorldScene extends Phaser.Scene {
             this.safeWalls.add(wall);
         }
 
+        const fort = this.add.graphics().setDepth(912);
+        for (const r of this.safeWallRects) {
+            const horizontal = r.w > r.h;
+            fort.fillStyle(0x6f7f89, 0.95);
+            fort.fillRect(r.x, r.y, r.w, r.h);
+            fort.fillStyle(0x9fb0bc, 0.45);
+            if (horizontal) {
+                fort.fillRect(r.x, r.y, r.w, 6);
+            } else {
+                fort.fillRect(r.x, r.y, 6, r.h);
+            }
+            fort.lineStyle(2, 0x2c3941, 0.7);
+            fort.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+
+            const postGap = 86;
+            if (horizontal) {
+                for (let x = r.x + 8; x < r.x + r.w - 8; x += postGap) {
+                    fort.fillStyle(0x4c5962, 1);
+                    fort.fillRect(x, r.y - 14, 5, 14);
+                    fort.fillStyle(0x8798a5, 0.9);
+                    fort.fillRect(x - 1, r.y - 16, 7, 3);
+                }
+                fort.lineStyle(1.4, 0xa9b8bf, 0.62);
+                fort.beginPath();
+                fort.moveTo(r.x + 8, r.y - 10);
+                fort.lineTo(r.x + r.w - 8, r.y - 10);
+                fort.moveTo(r.x + 8, r.y - 14);
+                fort.lineTo(r.x + r.w - 8, r.y - 14);
+                fort.strokePath();
+                for (let x = r.x + 12; x < r.x + r.w - 12; x += 30) {
+                    fort.fillStyle(0xdce7ee, 0.76);
+                    fort.fillCircle(x, r.y - 12, 1.4);
+                }
+            } else {
+                for (let y = r.y + 8; y < r.y + r.h - 8; y += postGap) {
+                    fort.fillStyle(0x4c5962, 1);
+                    fort.fillRect(r.x - 14, y, 14, 5);
+                    fort.fillStyle(0x8798a5, 0.9);
+                    fort.fillRect(r.x - 16, y - 1, 3, 7);
+                }
+                fort.lineStyle(1.4, 0xa9b8bf, 0.62);
+                fort.beginPath();
+                fort.moveTo(r.x - 10, r.y + 8);
+                fort.lineTo(r.x - 10, r.y + r.h - 8);
+                fort.moveTo(r.x - 14, r.y + 8);
+                fort.lineTo(r.x - 14, r.y + r.h - 8);
+                fort.strokePath();
+                for (let y = r.y + 12; y < r.y + r.h - 12; y += 30) {
+                    fort.fillStyle(0xdce7ee, 0.76);
+                    fort.fillCircle(r.x - 12, y, 1.4);
+                }
+            }
+        }
+
         this.gateZone = {
             x: SAFE_CENTER - GATE_WIDTH / 2,
             y: SAFE_MAX - 26,
@@ -344,6 +417,62 @@ export class WorldScene extends Phaser.Scene {
             decor.fillStyle(0xfff0a6, 0.16);
             decor.fillCircle(x, SAFE_MIN + 66, 18);
             decor.fillCircle(x, SAFE_MAX - 66, 18);
+        }
+
+        this.createDangerDecor(decor);
+    }
+
+    createDangerDecor(decor) {
+        const propCount = this.isTouchDevice ? 90 : 170;
+        const scarMin = SAFE_ZONE_HALF + 220;
+        const place = () => {
+            for (let tries = 0; tries < 40; tries += 1) {
+                const x = Phaser.Math.Between(70, WORLD_SIZE - 70);
+                const y = Phaser.Math.Between(70, WORLD_SIZE - 70);
+                const d = Phaser.Math.Distance.Between(x, y, SAFE_CENTER, SAFE_CENTER);
+                if (d > scarMin) {
+                    return { x, y };
+                }
+            }
+            return this.randomOutsidePoint();
+        };
+
+        for (let i = 0; i < propCount; i += 1) {
+            const p = place();
+            const t = i % 5;
+
+            if (t === 0) {
+                decor.fillStyle(0xe8dfd4, 0.88);
+                decor.fillCircle(p.x, p.y, 4.2);
+                decor.fillCircle(p.x - 5, p.y + 1, 1.2);
+                decor.fillCircle(p.x + 5, p.y + 1, 1.2);
+                decor.fillStyle(0x3f2b2a, 0.9);
+                decor.fillCircle(p.x - 1.5, p.y, 0.7);
+                decor.fillCircle(p.x + 1.5, p.y, 0.7);
+            } else if (t === 1 || t === 2) {
+                const angle = (i * 0.37) % (Math.PI * 2);
+                const len = 7 + (i % 3);
+                const x2 = p.x + Math.cos(angle) * len;
+                const y2 = p.y + Math.sin(angle) * len;
+                decor.lineStyle(2.2, 0xe2d5c4, 0.82);
+                decor.beginPath();
+                decor.moveTo(p.x, p.y);
+                decor.lineTo(x2, y2);
+                decor.strokePath();
+                decor.fillStyle(0xeaddcd, 0.82);
+                decor.fillCircle(p.x, p.y, 1.9);
+                decor.fillCircle(x2, y2, 1.5);
+            } else if (t === 3) {
+                decor.fillStyle(0x3f0f15, 0.33);
+                decor.fillEllipse(p.x, p.y, 16, 9);
+            } else {
+                decor.fillStyle(0x14191e, 0.52);
+                decor.fillEllipse(p.x, p.y + 7, 14, 5);
+                decor.fillStyle(0x4a403a, 0.92);
+                decor.fillRect(p.x - 1.5, p.y - 6, 3, 13);
+                decor.fillStyle(0x2f3328, 0.95);
+                decor.fillCircle(p.x, p.y - 8, 4);
+            }
         }
     }
 
