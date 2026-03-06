@@ -10,7 +10,7 @@ function createWalkAnim(scene, texture, baseOffset, direction, rowOffset) {
     scene.anims.create({
         key,
         frames: scene.anims.generateFrameNumbers(texture, { start, end: start + 2 }),
-        frameRate: 8,
+        frameRate: 12,
         repeat: -1
     });
 }

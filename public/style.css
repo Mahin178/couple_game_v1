@@ -60,14 +60,17 @@ canvas {
     top: 12px;
     left: 12px;
     right: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
     pointer-events: none;
+    z-index: 1200;
 }
 
 #backpackCard {
-    position: fixed;
-    left: 12px;
-    top: 12px;
-    width: min(52vw, 360px);
+    position: relative;
+    width: min(56vw, 440px);
     border-radius: 14px;
     padding: 10px 12px 10px 14px;
     background:
@@ -105,34 +108,31 @@ canvas {
     font-size: 11px;
     line-height: 1.35;
     color: #fff3de;
-    max-height: 48px;
-    overflow: hidden;
+    min-height: 32px;
+    white-space: normal;
+    word-break: break-word;
 }
 
 #loveMeterWrap {
-    min-width: min(44vw, 360px);
-    position: fixed;
-    left: 50%;
-    top: 12px;
-    transform: translateX(-50%);
+    min-width: min(28vw, 280px);
+    position: relative;
+    margin-left: auto;
     background:
         radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.2), transparent 50%),
         linear-gradient(145deg, rgba(34, 52, 68, 0.9), rgba(22, 36, 48, 0.92));
     border: 1px solid rgba(188, 226, 255, 0.5);
     border-radius: 14px;
-    padding: 10px 12px;
+    padding: 8px 10px;
     box-shadow: 0 8px 24px rgba(18, 20, 34, 0.22);
 }
 
 #loveStatus {
-    position: fixed;
-    right: 12px;
-    top: 12px;
+    position: relative;
     background: rgba(20, 35, 52, 0.9);
     border: 1px solid rgba(190, 226, 255, 0.55);
     border-radius: 12px;
-    padding: 9px 12px;
-    font-size: 12px;
+    padding: 7px 10px;
+    font-size: 11px;
     color: #d8f2ff;
     font-weight: 700;
 }
@@ -140,7 +140,7 @@ canvas {
 #loveMeter {
     margin-top: 6px;
     width: 100%;
-    height: 12px;
+    height: 10px;
     background: rgba(255, 255, 255, 0.16);
     border-radius: 8px;
     overflow: hidden;
@@ -155,7 +155,7 @@ canvas {
 
 #miniMapWrap {
     position: fixed;
-    top: 88px;
+    top: 104px;
     right: 12px;
     width: 158px;
     height: 158px;
@@ -235,6 +235,8 @@ canvas {
     flex-direction: column;
     justify-content: flex-end;
     align-items: stretch;
+    max-height: 62vh;
+    overflow-y: auto;
 }
 
 .actionBtn {
@@ -512,7 +514,7 @@ canvas {
     #miniMapWrap {
         width: 118px;
         height: 118px;
-        top: 86px;
+        top: 112px;
         right: 10px;
     }
 
@@ -576,29 +578,34 @@ canvas {
 }
 
 @media (max-width: 560px), (pointer: coarse) {
-    #backpackCard {
-        left: 8px;
+    #topHud {
         top: 8px;
-        width: min(56vw, 280px);
+        left: 8px;
+        right: 8px;
+        gap: 8px;
+    }
+
+    #backpackCard {
+        width: min(100%, 360px);
+        padding: 8px 10px 8px 12px;
     }
 
     #loveMeterWrap {
-        top: 8px;
-        min-width: min(40vw, 190px);
-        padding: 8px 10px;
+        min-width: 0;
+        width: min(48vw, 190px);
+        margin-left: 0;
+        padding: 7px 9px;
     }
 
     #loveStatus {
-        right: 8px;
-        top: 8px;
         font-size: 11px;
-        padding: 8px 9px;
+        padding: 6px 8px;
     }
 
     #miniMapWrap {
         width: 102px;
         height: 102px;
-        top: 82px;
+        top: 108px;
         right: 8px;
     }
 

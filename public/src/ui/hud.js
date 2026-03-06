@@ -48,6 +48,9 @@ export function createHudControls() {
     };
     const gameOverOverlay = document.getElementById("gameOverOverlay");
     const restartButton = document.getElementById("btnRestartGame");
+    const actionState = {};
+    let drivePadVisible = false;
+    let mobileBuildVisible = false;
 
     return {
         chatForm,
@@ -118,10 +121,20 @@ export function createHudControls() {
             if (!btn) {
                 return;
             }
-            btn.style.display = show ? "inline-block" : "none";
+            const visible = Boolean(show);
+            if (actionState[name] === visible) {
+                return;
+            }
+            actionState[name] = visible;
+            btn.style.display = visible ? "inline-block" : "none";
         },
         showDrivePad(show) {
-            drivePad.root.style.display = show ? "block" : "none";
+            const visible = Boolean(show);
+            if (drivePadVisible === visible) {
+                return;
+            }
+            drivePadVisible = visible;
+            drivePad.root.style.display = visible ? "block" : "none";
         },
         showGameOver(show) {
             gameOverOverlay.style.display = show ? "flex" : "none";
@@ -144,7 +157,12 @@ export function createHudControls() {
         },
         showMobileBuildAction(show) {
             if (mobileBuildAction) {
-                mobileBuildAction.style.display = show ? "inline-flex" : "none";
+                const visible = Boolean(show);
+                if (mobileBuildVisible === visible) {
+                    return;
+                }
+                mobileBuildVisible = visible;
+                mobileBuildAction.style.display = visible ? "inline-flex" : "none";
             }
         },
         showFullMap(show) {

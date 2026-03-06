@@ -4,7 +4,7 @@ import { VirtualJoystick } from "../controls/virtualJoystick.js";
 import { createHudControls } from "../ui/hud.js";
 
 const MAX_PLAYERS = 4;
-const PLAYER_SPEED = 192;
+const PLAYER_SPEED = 214;
 
 const CAR_ACCEL = 780;
 const CAR_BRAKE = 980;
@@ -155,9 +155,16 @@ export class WorldScene extends Phaser.Scene {
         this.lastAimUpdateAt = 0;
         this.lastAiTickAt = 0;
         this.lastResourceCullAt = 0;
+        this.lastInteractionRefreshAt = 0;
         this.lastBackpackText = "";
         this.lastUiHintKey = "";
         this.currentEnterAction = "";
+
+        this.aiRefreshMs = AI_REFRESH_MS;
+        this.resourceCullMs = RESOURCE_CULL_MS;
+        this.hudRefreshMs = HUD_REFRESH_MS;
+        this.mapRefreshMs = MAP_REFRESH_MS;
+        this.fullMapRefreshMs = FULL_MAP_REFRESH_MS;
     }
 
     create() {
@@ -324,7 +331,8 @@ export class WorldScene extends Phaser.Scene {
             decor.fillCircle(x + 10 * scale, y + 6 * scale, 10 * scale);
         };
 
-        for (let i = 0; i < 300; i += 1) {
+        const treeCount = this.isTouchDevice ? 140 : 300;
+        for (let i = 0; i < treeCount; i += 1) {
             const x = Phaser.Math.Between(80, WORLD_SIZE - 80);
             const y = Phaser.Math.Between(80, WORLD_SIZE - 80);
             if (this.isInsideSafeZone(x, y)) {
@@ -453,7 +461,7 @@ export class WorldScene extends Phaser.Scene {
             }
         };
 
-        const mobileScale = this.isTouchDevice ? 0.62 : 1;
+        const mobileScale = this.isTouchDevice ? 0.46 : 1;
         spawnCluster("apple", "food", Math.floor(44 * mobileScale));
         spawnCluster("strawberry", "food", Math.floor(36 * mobileScale));
         spawnCluster("blueberry", "food", Math.floor(36 * mobileScale));
@@ -464,7 +472,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     createCows() {
-        const cowCount = this.isTouchDevice ? 10 : 14;
+        const cowCount = this.isTouchDevice ? 7 : 14;
         for (let i = 0; i < cowCount; i += 1) {
             const point = this.randomOutsidePoint();
             const cow = {
@@ -490,7 +498,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     createZombies() {
-        const zombieCount = this.isTouchDevice ? 34 : 46;
+        const zombieCount = this.isTouchDevice ? 22 : 46;
         for (let i = 0; i < zombieCount; i += 1) {
             const point = this.randomOutsidePoint();
             const zombie = {
@@ -617,6 +625,11 @@ export class WorldScene extends Phaser.Scene {
         this.input.keyboard.disableGlobalCapture();
 
         this.isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
+        this.aiRefreshMs = this.isTouchDevice ? 90 : AI_REFRESH_MS;
+        this.resourceCullMs = this.isTouchDevice ? 320 : RESOURCE_CULL_MS;
+        this.hudRefreshMs = this.isTouchDevice ? 300 : HUD_REFRESH_MS;
+        this.mapRefreshMs = this.isTouchDevice ? 280 : MAP_REFRESH_MS;
+        this.fullMapRefreshMs = this.isTouchDevice ? 340 : FULL_MAP_REFRESH_MS;
         this.localDisplayName = this.isTouchDevice ? "wife" : "husband";
         this.socketAdapter.setProfile({ name: this.localDisplayName });
 
@@ -667,6 +680,7 @@ export class WorldScene extends Phaser.Scene {
         const frameOffset = this.getFrameOffsetForName(this.localDisplayName);
 
         this.localPlayer = new PlayerEntity(this, spawn.x, spawn.y, "player", frameOffset, "local", this.localDisplayName, true);
+        this.localPlayer.sprite.body.setMaxVelocity(PLAYER_SPEED, PLAYER_SPEED);
 
         this.physics.add.collider(this.localPlayer.sprite, this.safeWalls);
         this.physics.add.collider(this.localPlayer.sprite, this.blockLayer);
@@ -1150,13 +1164,13 @@ export class WorldScene extends Phaser.Scene {
         this.updateVehicleVisual();
         this.updateGateHint();
         this.updateResourceRespawns(time);
-        if (time - this.lastAiTickAt > AI_REFRESH_MS) {
+        if (time - this.lastAiTickAt > this.aiRefreshMs) {
             const aiDt = Math.min(0.09, (time - this.lastAiTickAt) / 1000 || dt);
             this.lastAiTickAt = time;
             this.updateCows(aiDt, time);
             this.updateZombies(aiDt, time);
         }
-        if (time - this.lastResourceCullAt > RESOURCE_CULL_MS) {
+        if (time - this.lastResourceCullAt > this.resourceCullMs) {
             this.lastResourceCullAt = time;
             this.updateResourceVisibility();
         }
@@ -1165,22 +1179,25 @@ export class WorldScene extends Phaser.Scene {
             this.updateAimTarget(time);
         }
         this.updateBuildPreview();
-        this.updateInteractionButtons();
+        if (time - this.lastInteractionRefreshAt > 120) {
+            this.lastInteractionRefreshAt = time;
+            this.updateInteractionButtons();
+        }
         this.updateCameraTarget();
         this.updateCameraPov();
         this.updatePlayerIndicator(time);
         this.updateDayNight(time);
         this.updateHungerAndStatus(time);
-        if (time - this.lastHudRefreshAt > HUD_REFRESH_MS) {
+        if (time - this.lastHudRefreshAt > this.hudRefreshMs) {
             this.lastHudRefreshAt = time;
             this.updateBondMeter();
             this.updateBackpackInfo();
         }
-        if (time - this.lastMapDrawAt > MAP_REFRESH_MS) {
+        if (time - this.lastMapDrawAt > this.mapRefreshMs) {
             this.lastMapDrawAt = time;
             this.renderMiniMap();
         }
-        if (this.isFullMapOpen && time - this.lastFullMapDrawAt > FULL_MAP_REFRESH_MS) {
+        if (this.isFullMapOpen && time - this.lastFullMapDrawAt > this.fullMapRefreshMs) {
             this.lastFullMapDrawAt = time;
             this.renderFullMap();
         }
@@ -1235,16 +1252,26 @@ export class WorldScene extends Phaser.Scene {
             moveY += j.y;
         }
 
+        const body = this.localPlayer.sprite.body;
         const vec = new Phaser.Math.Vector2(moveX, moveY);
         if (vec.lengthSq() > 1) {
             vec.normalize();
         }
 
-        this.localPlayer.setVelocity(vec.x * PLAYER_SPEED, vec.y * PLAYER_SPEED);
+        const targetVx = vec.x * PLAYER_SPEED;
+        const targetVy = vec.y * PLAYER_SPEED;
+        const blend = vec.lengthSq() > 0.01 ? 0.34 : 0.26;
+        body.velocity.x = Phaser.Math.Linear(body.velocity.x, targetVx, blend);
+        body.velocity.y = Phaser.Math.Linear(body.velocity.y, targetVy, blend);
+        if (Math.abs(body.velocity.x) < 2) {
+            body.velocity.x = 0;
+        }
+        if (Math.abs(body.velocity.y) < 2) {
+            body.velocity.y = 0;
+        }
 
-        const body = this.localPlayer.sprite.body;
         const velocitySq = body.velocity.lengthSq();
-        const animState = velocitySq > 4 ? "walk" : "idle";
+        const animState = velocitySq > 64 ? "walk" : "idle";
         let direction = this.localPlayer.lastState.direction;
 
         if (Math.abs(body.velocity.x) > Math.abs(body.velocity.y)) {
@@ -2002,11 +2029,12 @@ export class WorldScene extends Phaser.Scene {
     }
 
     updateBackpackInfo() {
-        const backpackText =
-            `Backpack: apple ${this.inventory.apple}, strawberry ${this.inventory.strawberry}, ` +
-            `blueberry ${this.inventory.blueberry}, meat ${this.inventory.meat}, ` +
-            `brick ${this.inventory.brick}, wood ${this.inventory.wood}, glass ${this.inventory.glass}, steel ${this.inventory.steel} | ` +
-            `Hunger ${Math.round(this.hunger)} | Bites ${this.bitesTaken}/2`;
+        const order = ["apple", "strawberry", "blueberry", "meat", "brick", "wood", "glass", "steel"];
+        const entries = order
+            .map((name) => [name, this.inventory[name] || 0])
+            .filter(([, amount]) => amount > 0)
+            .map(([name, amount]) => `${name}: ${amount}`);
+        const backpackText = entries.length > 0 ? entries.join(" | ") : "Backpack empty";
 
         if (this.lastBackpackText === backpackText) {
             return;
@@ -2131,7 +2159,6 @@ export class WorldScene extends Phaser.Scene {
             return;
         }
 
-        const coarse = window.matchMedia("(pointer: coarse)").matches;
         this.hud.showDrivePad(false);
 
         const seat = this.getLocalSeat();
@@ -2147,12 +2174,12 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showAction("sit", Boolean(rideCar) && !seat && !this.isTouchDevice);
         this.hud.showAction("exitCar", Boolean(seat) && !this.isTouchDevice);
         this.hud.showAction("openGate", Boolean(this.nearGate) && !seat && !this.isTouchDevice);
-        this.hud.showAction("shoot", !seat && !this.isTouchDevice);
-        this.hud.showAction("eat", this.getFoodCount() > 0 && !this.isTouchDevice);
-        this.hud.showAction("buildMode", canBuild && !this.isTouchDevice);
+        this.hud.showAction("shoot", !seat);
+        this.hud.showAction("eat", this.getFoodCount() > 0 && !seat);
+        this.hud.showAction("buildMode", canBuild);
         this.hud.showAction("removeBlock", canBuild && this.isBuildMode && !this.isTouchDevice);
-        this.hud.showAction("cycleMaterial", canBuild && this.isBuildMode && !this.isTouchDevice);
-        this.hud.showAction("cycleWeapon", !seat && !this.isTouchDevice);
+        this.hud.showAction("cycleMaterial", canBuild && this.isBuildMode);
+        this.hud.showAction("cycleWeapon", !seat);
 
         if (this.isTouchDevice) {
             this.currentEnterAction = "";
@@ -2177,7 +2204,7 @@ export class WorldScene extends Phaser.Scene {
             }
 
             this.hud.showAction("collect", Boolean(this.getNearestResource(86)) && !seat);
-            this.hud.showAction("placeBlock", canBuild);
+            this.hud.showAction("placeBlock", canBuild && this.isBuildMode);
             if (this.hud.buttons.placeBlock) {
                 this.hud.buttons.placeBlock.textContent = this.isBuildMode && this.buildHoverAction === "remove" ? "Remove" : "Place";
             }
@@ -2189,7 +2216,7 @@ export class WorldScene extends Phaser.Scene {
             this.hud.showMobileBuildAction(false);
         }
 
-        if (coarse && this.getDrivingVehicleId() && this.lastUiHintKey !== "drive_hint") {
+        if (this.isTouchDevice && this.getDrivingVehicleId() && this.lastUiHintKey !== "drive_hint") {
             this.lastUiHintKey = "drive_hint";
             this.setMission("Use joystick + arrows to drive.");
         }

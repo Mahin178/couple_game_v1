@@ -7,7 +7,7 @@ export class VirtualJoystick {
         this.pointerId = null;
         this.center = { x: 0, y: 0 };
         this.maxRadius = 30;
-        this.deadZone = 0.1;
+        this.deadZone = 0.06;
 
         this.recalculate();
         this.resetKnob();
@@ -98,8 +98,8 @@ export class VirtualJoystick {
     }
 
     getVector() {
-        this.smoothVector.x = Phaser.Math.Linear(this.smoothVector.x, this.vector.x, 0.52);
-        this.smoothVector.y = Phaser.Math.Linear(this.smoothVector.y, this.vector.y, 0.52);
+        this.smoothVector.x = Phaser.Math.Linear(this.smoothVector.x, this.vector.x, 0.68);
+        this.smoothVector.y = Phaser.Math.Linear(this.smoothVector.y, this.vector.y, 0.68);
         return this.smoothVector;
     }
 }
