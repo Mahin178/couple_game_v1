@@ -14,11 +14,12 @@ const CAR_STEER_BASE = 1.9;
 const CAR_STEER_SPEED_FACTOR = 1.9;
 const CAR_HAND_BRAKE = 1550;
 const DIRECTIONS = ["down", "left", "right", "up"];
-const MATERIAL_ORDER = ["brick", "wood", "glass"];
+const MATERIAL_ORDER = ["brick", "wood", "glass", "steel"];
 const MATERIAL_STYLE = {
     brick: { fill: 0xa54f3c, stroke: 0x6e2d21, preview: 0xbd6d58 },
     wood: { fill: 0x8a633b, stroke: 0x5a3d22, preview: 0xb48557 },
-    glass: { fill: 0x8bcde0, stroke: 0x4b7f92, preview: 0xa8dced, alpha: 0.62 }
+    glass: { fill: 0x8bcde0, stroke: 0x4b7f92, preview: 0xa8dced, alpha: 0.62 },
+    steel: { fill: 0x8e9aad, stroke: 0x5a6475, preview: 0xaeb7c8 }
 };
 
 const CAR_CONFIG = [
@@ -96,7 +97,7 @@ export class WorldScene extends Phaser.Scene {
         this.buildBlocks = new Map();
         this.buildBlockColliders = null;
         this.materialDepots = [];
-        this.inventory = { brick: 0, wood: 0, glass: 0 };
+        this.inventory = { brick: 0, wood: 0, glass: 0, steel: 0 };
         this.selectedMaterial = "brick";
         this.isBuildMode = false;
         this.buildTarget = null;
@@ -114,6 +115,10 @@ export class WorldScene extends Phaser.Scene {
         this.audioCtx = null;
         this.lastStepSoundTime = 0;
         this.localDisplayName = "husband";
+        this.mapUi = null;
+        this.isFullMapOpen = false;
+        this.mapOpenHandler = null;
+        this.mapCloseHandler = null;
     }
 
     create() {
@@ -135,12 +140,14 @@ export class WorldScene extends Phaser.Scene {
         this.createPlayerIndicator();
         this.setupNetworking();
         this.createDayNightOverlay();
+        this.createMapUi();
         this.bindChatInput();
         this.bindEmojiButtons();
         this.bindActionButtons();
         this.bindDrivePadButtons();
         this.bindRestartButton();
         this.bindMobileUi();
+        this.bindMapUi();
 
         this.events.once("shutdown", () => this.cleanup());
     }
@@ -400,7 +407,8 @@ export class WorldScene extends Phaser.Scene {
         this.materialDepots = [
             { material: "brick", gridX: 50, gridY: 33 },
             { material: "wood", gridX: 52, gridY: 33 },
-            { material: "glass", gridX: 54, gridY: 33 }
+            { material: "glass", gridX: 54, gridY: 33 },
+            { material: "steel", gridX: 56, gridY: 33 }
         ];
 
         for (const depot of this.materialDepots) {
@@ -570,6 +578,7 @@ export class WorldScene extends Phaser.Scene {
             matBrick: Phaser.Input.Keyboard.KeyCodes.ONE,
             matWood: Phaser.Input.Keyboard.KeyCodes.TWO,
             matGlass: Phaser.Input.Keyboard.KeyCodes.THREE,
+            matSteel: Phaser.Input.Keyboard.KeyCodes.FOUR,
             handBrake: Phaser.Input.Keyboard.KeyCodes.SPACE
         });
 
@@ -621,6 +630,7 @@ export class WorldScene extends Phaser.Scene {
         if (this.buildBlockColliders) {
             this.physics.add.collider(this.localPlayer.sprite, this.buildBlockColliders);
         }
+        this.cameras.main.setZoom(this.isTouchDevice ? 1.14 : 1.26);
         this.cameras.main.startFollow(this.localPlayer.sprite, true, 0.16, 0.16);
     }
 
@@ -878,6 +888,141 @@ export class WorldScene extends Phaser.Scene {
         }, durationMs);
     }
 
+    createMapUi() {
+        const miniCanvas = this.hud.miniMapCanvas;
+        const fullCanvas = this.hud.fullMapCanvas;
+        if (!miniCanvas || !fullCanvas) {
+            return;
+        }
+
+        const miniCtx = miniCanvas.getContext("2d");
+        const fullCtx = fullCanvas.getContext("2d");
+        if (!miniCtx || !fullCtx) {
+            return;
+        }
+
+        this.mapUi = {
+            miniCanvas,
+            fullCanvas,
+            miniCtx,
+            fullCtx
+        };
+
+        this.setFullMapOpen(false);
+        this.renderMiniMap();
+    }
+
+    bindMapUi() {
+        if (!this.mapUi) {
+            return;
+        }
+
+        if (this.hud.miniMapWrap) {
+            this.mapOpenHandler = () => this.setFullMapOpen(true);
+            this.hud.miniMapWrap.addEventListener("click", this.mapOpenHandler);
+        }
+        if (this.hud.closeFullMapButton) {
+            this.mapCloseHandler = () => this.setFullMapOpen(false);
+            this.hud.closeFullMapButton.addEventListener("click", this.mapCloseHandler);
+        }
+    }
+
+    setFullMapOpen(open) {
+        this.isFullMapOpen = Boolean(open);
+        this.hud.showFullMap(this.isFullMapOpen);
+    }
+
+    drawMapToContext(ctx, width, height, fullView = false) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#12324a";
+        ctx.fillRect(0, 0, width, height);
+
+        const sx = width / WORLD_SIZE;
+        const sy = height / WORLD_SIZE;
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+        ctx.lineWidth = fullView ? 2 : 1;
+        const roadYs = [22, 23, 24, 43, 44, 45].map((v) => v * TILE_SIZE * sy);
+        const roadXs = [22, 23, 24, 43, 44, 45].map((v) => v * TILE_SIZE * sx);
+        for (const ry of roadYs) {
+            ctx.beginPath();
+            ctx.moveTo(0, ry);
+            ctx.lineTo(width, ry);
+            ctx.stroke();
+        }
+        for (const rx of roadXs) {
+            ctx.beginPath();
+            ctx.moveTo(rx, 0);
+            ctx.lineTo(rx, height);
+            ctx.stroke();
+        }
+
+        for (const b of this.buildings) {
+            ctx.fillStyle = "rgba(246, 190, 133, 0.68)";
+            ctx.fillRect(b.tx * TILE_SIZE * sx, b.ty * TILE_SIZE * sy, b.tw * TILE_SIZE * sx, b.th * TILE_SIZE * sy);
+        }
+
+        for (const depot of this.materialDepots) {
+            const style = MATERIAL_STYLE[depot.material];
+            ctx.fillStyle = `#${style.fill.toString(16).padStart(6, "0")}`;
+            const x = depot.gridX * TILE_SIZE * sx;
+            const y = depot.gridY * TILE_SIZE * sy;
+            ctx.fillRect(x, y, TILE_SIZE * sx, TILE_SIZE * sy);
+        }
+
+        for (const block of this.buildBlocks.values()) {
+            const style = MATERIAL_STYLE[block.material];
+            ctx.fillStyle = `#${style.fill.toString(16).padStart(6, "0")}`;
+            const x = block.gridX * TILE_SIZE * sx;
+            const y = block.gridY * TILE_SIZE * sy;
+            ctx.fillRect(x, y, TILE_SIZE * sx, TILE_SIZE * sy);
+        }
+
+        const local = this.getPlayerWorldPosition(this.socketAdapter.id);
+        if (local && !local.inInterior) {
+            ctx.fillStyle = "#ff5f88";
+            ctx.beginPath();
+            ctx.arc(local.x * sx, local.y * sy, fullView ? 5 : 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        for (const [id] of this.players.entries()) {
+            const pos = this.getPlayerWorldPosition(id);
+            if (!pos || pos.inInterior) {
+                continue;
+            }
+
+            ctx.fillStyle = "#75f0d7";
+            ctx.beginPath();
+            ctx.arc(pos.x * sx, pos.y * sy, fullView ? 4 : 2.6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        if (!fullView) {
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, Math.min(width, height) / 2 - 2, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    renderMiniMap() {
+        if (!this.mapUi) {
+            return;
+        }
+
+        this.drawMapToContext(this.mapUi.miniCtx, this.mapUi.miniCanvas.width, this.mapUi.miniCanvas.height, false);
+    }
+
+    renderFullMap() {
+        if (!this.mapUi || !this.isFullMapOpen) {
+            return;
+        }
+
+        this.drawMapToContext(this.mapUi.fullCtx, this.mapUi.fullCanvas.width, this.mapUi.fullCanvas.height, true);
+    }
+
     syncRemotePlayers() {
         const entries = Object.entries(this.playerList).slice(0, MAX_PLAYERS);
         const seen = new Set();
@@ -964,6 +1109,9 @@ export class WorldScene extends Phaser.Scene {
         if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.matGlass)) {
             this.setMaterial("glass");
         }
+        if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.matSteel)) {
+            this.setMaterial("steel");
+        }
 
         if (!this.isGameOver) {
             if (this.getDrivingVehicleId()) {
@@ -984,9 +1132,12 @@ export class WorldScene extends Phaser.Scene {
         this.updateBuildPreview();
         this.updateInteractionButtons();
         this.updateCameraTarget();
+        this.updateCameraPov();
         this.updatePlayerIndicator(time);
         this.updateDayNight(time);
         this.updateLoveMeter();
+        this.renderMiniMap();
+        this.renderFullMap();
 
         if (!this.isGameOver) {
             this.sendMoveIfNeeded(time);
@@ -2081,7 +2232,7 @@ export class WorldScene extends Phaser.Scene {
         const mode = this.isBuildMode ? "ON" : "OFF";
         const text =
             `Build: ${mode} | Selected: ${label} | Brick ${this.inventory.brick} | ` +
-            `Wood ${this.inventory.wood} | Glass ${this.inventory.glass} | Hotkeys: B/F/G/1/2/3`;
+            `Wood ${this.inventory.wood} | Glass ${this.inventory.glass} | Steel ${this.inventory.steel} | Hotkeys: B/F/G/1/2/3/4`;
         this.hud.setBuildInfo(text);
     }
 
@@ -2159,6 +2310,29 @@ export class WorldScene extends Phaser.Scene {
         if (target && this.cameras.main._follow !== target) {
             this.cameras.main.startFollow(target, true, 0.14, 0.14);
         }
+    }
+
+    updateCameraPov() {
+        const seat = this.getLocalSeat();
+        let velX = 0;
+        let velY = 0;
+
+        if (seat) {
+            const v = this.vehicleStates[seat.vehicleId];
+            if (v) {
+                velX = Math.cos(v.angle) * v.speed;
+                velY = Math.sin(v.angle) * v.speed;
+            }
+        } else if (this.localPlayer?.sprite?.body) {
+            velX = this.localPlayer.sprite.body.velocity.x;
+            velY = this.localPlayer.sprite.body.velocity.y;
+        }
+
+        const maxOffset = this.isTouchDevice ? 38 : 54;
+        const desiredX = clamp(velX * 0.095, -maxOffset, maxOffset);
+        const desiredY = clamp(velY * 0.095, -maxOffset, maxOffset);
+        this.cameras.main.followOffset.x = Phaser.Math.Linear(this.cameras.main.followOffset.x, desiredX, 0.12);
+        this.cameras.main.followOffset.y = Phaser.Math.Linear(this.cameras.main.followOffset.y, desiredY, 0.12);
     }
 
     updatePlayerIndicator(time) {
@@ -2240,6 +2414,12 @@ export class WorldScene extends Phaser.Scene {
         if (this.hud.mobileBuildAction && this.mobileBuildHandler) {
             this.hud.mobileBuildAction.removeEventListener("click", this.mobileBuildHandler);
         }
+        if (this.hud.miniMapWrap && this.mapOpenHandler) {
+            this.hud.miniMapWrap.removeEventListener("click", this.mapOpenHandler);
+        }
+        if (this.hud.closeFullMapButton && this.mapCloseHandler) {
+            this.hud.closeFullMapButton.removeEventListener("click", this.mapCloseHandler);
+        }
         if (this.hud.chatToggle && this.mobileChatHandler) {
             this.hud.chatToggle.removeEventListener("click", this.mobileChatHandler);
         }
@@ -2296,6 +2476,7 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showDrivePad(false);
         this.hud.showMobileBuildAction(false);
         this.hud.showGameOver(false);
+        this.hud.showFullMap(false);
         document.body.classList.remove("mobile-chat-open");
         document.body.classList.remove("mobile-mission-open");
         for (const name of Object.keys(this.hud.buttons)) {

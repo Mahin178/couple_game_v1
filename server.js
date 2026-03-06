@@ -5,7 +5,7 @@ const { Server } = require("socket.io");
 const MAX_PLAYERS = 4;
 const WORLD_SIZE = 4608;
 const TILE_SIZE = 64;
-const MATERIALS = new Set(["brick", "wood", "glass"]);
+const MATERIALS = new Set(["brick", "wood", "glass", "steel"]);
 
 const app = express();
 const server = http.createServer(app);

@@ -2,6 +2,7 @@ function drawBody(ctx, frameX, frameY, bodyColor, direction, phase) {
     const ox = frameX * 32;
     const oy = frameY * 32;
     const swing = phase === 1 ? -2 : phase === 2 ? 2 : 0;
+    const isWifeVariant = bodyColor.toLowerCase() === "#f06392";
 
     ctx.fillStyle = "#2f2f2f";
     const legOffset = swing;
@@ -16,6 +17,10 @@ function drawBody(ctx, frameX, frameY, bodyColor, direction, phase) {
 
     ctx.fillStyle = bodyColor;
     ctx.fillRect(ox + 8, oy + 11, 16, 13);
+    ctx.fillStyle = isWifeVariant ? "#ffd7e7" : "#d5e3ff";
+    ctx.fillRect(ox + 10, oy + 14, 12, 3);
+    ctx.fillStyle = "#2a2a2a";
+    ctx.fillRect(ox + 8, oy + 23, 16, 1);
 
     // Arms and hands for a more expressive walk cycle.
     ctx.fillStyle = bodyColor;
@@ -38,6 +43,40 @@ function drawBody(ctx, frameX, frameY, bodyColor, direction, phase) {
 
     ctx.fillStyle = "#efc5a4";
     ctx.fillRect(ox + 10, oy + 4, 12, 9);
+    ctx.fillStyle = "#d7ae8d";
+    ctx.fillRect(ox + 10, oy + 12, 12, 1);
+
+    // Hair + face details.
+    ctx.fillStyle = isWifeVariant ? "#3e2335" : "#2b2623";
+    ctx.fillRect(ox + 9, oy + 3, 14, 3);
+    if (direction === "left") {
+        ctx.fillRect(ox + 9, oy + 4, 4, 8);
+    } else if (direction === "right") {
+        ctx.fillRect(ox + 19, oy + 4, 4, 8);
+    } else {
+        ctx.fillRect(ox + 9, oy + 4, 2, 7);
+        ctx.fillRect(ox + 21, oy + 4, 2, 7);
+    }
+
+    ctx.fillStyle = "#1b1b1b";
+    if (direction === "down") {
+        ctx.fillRect(ox + 13, oy + 8, 2, 2);
+        ctx.fillRect(ox + 17, oy + 8, 2, 2);
+        ctx.fillStyle = isWifeVariant ? "#d7688e" : "#b9826f";
+        ctx.fillRect(ox + 14, oy + 10, 4, 1);
+    } else if (direction === "left") {
+        ctx.fillRect(ox + 12, oy + 8, 2, 2);
+    } else if (direction === "right") {
+        ctx.fillRect(ox + 18, oy + 8, 2, 2);
+    }
+
+    // Small accessory accent.
+    ctx.fillStyle = isWifeVariant ? "#fce3a8" : "#9fe8f8";
+    if (direction === "up") {
+        ctx.fillRect(ox + 15, oy + 7, 2, 2);
+    } else {
+        ctx.fillRect(ox + 20, oy + 7, 2, 2);
+    }
 
     ctx.fillStyle = "#1f1f1f";
     if (direction === "up") {

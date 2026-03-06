@@ -9,8 +9,14 @@ export function createHudControls() {
     const materialCounts = {
         brick: document.getElementById("matBrickCount"),
         wood: document.getElementById("matWoodCount"),
-        glass: document.getElementById("matGlassCount")
+        glass: document.getElementById("matGlassCount"),
+        steel: document.getElementById("matSteelCount")
     };
+    const miniMapWrap = document.getElementById("miniMapWrap");
+    const miniMapCanvas = document.getElementById("miniMapCanvas");
+    const fullMapModal = document.getElementById("fullMapModal");
+    const fullMapCanvas = document.getElementById("fullMapCanvas");
+    const closeFullMapButton = document.getElementById("btnCloseFullMap");
     const buttons = {
         drive: document.getElementById("btnDrive"),
         sit: document.getElementById("btnSit"),
@@ -45,6 +51,11 @@ export function createHudControls() {
         authorTag,
         chatToggle,
         materialCounts,
+        miniMapWrap,
+        miniMapCanvas,
+        fullMapModal,
+        fullMapCanvas,
+        closeFullMapButton,
         buttons,
         drivePad,
         restartButton,
@@ -71,6 +82,9 @@ export function createHudControls() {
             }
             if (materialCounts.glass) {
                 materialCounts.glass.textContent = String(counts.glass ?? 0);
+            }
+            if (materialCounts.steel) {
+                materialCounts.steel.textContent = String(counts.steel ?? 0);
             }
         },
         showAction(name, show) {
@@ -106,6 +120,14 @@ export function createHudControls() {
             if (mobileBuildAction) {
                 mobileBuildAction.style.display = show ? "inline-flex" : "none";
             }
+        },
+        showFullMap(show) {
+            if (!fullMapModal) {
+                return;
+            }
+
+            fullMapModal.style.display = show ? "flex" : "none";
+            fullMapModal.setAttribute("aria-hidden", show ? "false" : "true");
         }
     };
 }

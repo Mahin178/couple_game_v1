@@ -18,6 +18,15 @@
                 <div id="loveMeter"><div id="loveFill"></div></div>
             </div>
         </div>
+        <button id="miniMapWrap" type="button" aria-label="Open map">
+            <canvas id="miniMapCanvas" width="168" height="168"></canvas>
+        </button>
+        <div id="fullMapModal" aria-hidden="true">
+            <div id="fullMapCard">
+                <button id="btnCloseFullMap" type="button" aria-label="Close map">✕</button>
+                <canvas id="fullMapCanvas" width="700" height="700"></canvas>
+            </div>
+        </div>
 
         <div id="interactionPanel">
             <button id="btnDrive" class="actionBtn">Drive</button>
@@ -39,6 +48,7 @@
             <div><span>brick:</span> <strong id="matBrickCount">0</strong></div>
             <div><span>wood:</span> <strong id="matWoodCount">0</strong></div>
             <div><span>glass:</span> <strong id="matGlassCount">0</strong></div>
+            <div><span>steel:</span> <strong id="matSteelCount">0</strong></div>
         </div>
 
         <div id="emojiBar">
