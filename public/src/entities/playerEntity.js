@@ -8,40 +8,44 @@ export class PlayerEntity {
         this.textureKey = textureKey;
         this.frameOffset = frameOffset;
         this.isLocal = isLocal;
+        this.isTouch = window.matchMedia("(pointer: coarse)").matches;
 
         this.sprite = scene.physics.add.sprite(x, y, textureKey, frameOffset);
-        this.sprite.setScale(1, 1.12);
-        this.sprite.setSize(14, 11);
-        this.sprite.setOffset(9, 21);
+        this.sprite.setScale(1.12, 1.24);
+        this.sprite.setSize(15, 12);
+        this.sprite.setOffset(8.5, 20);
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setDepth(1000 + y);
-        const isTouch = window.matchMedia("(pointer: coarse)").matches;
         const textResolution = Math.max(1.5, Math.min(3, window.devicePixelRatio || 1.5));
+        const nameFont = this.isTouch ? "12px" : "11px";
+        const bubbleFont = this.isTouch ? "13px" : "12px";
+
+        this.shadow = scene.add.ellipse(x, y + 14, 22, 8, 0x000000, 0.2).setDepth(990);
 
         this.nameText = scene.add
-            .text(x, y - 30, this.name, {
+            .text(x, y - 32, this.name, {
                 fontFamily: "\"Trebuchet MS\", \"Verdana\", sans-serif",
-                fontSize: isTouch ? "17px" : "13px",
+                fontSize: nameFont,
                 color: "#ffffff",
                 stroke: "#1a1a25",
-                strokeThickness: isTouch ? 4 : 3,
-                backgroundColor: "rgba(0,0,0,0.56)",
-                padding: { x: isTouch ? 6 : 4, y: isTouch ? 3 : 2 }
+                strokeThickness: 2,
+                backgroundColor: "rgba(8,12,20,0.72)",
+                padding: { x: 4, y: 1 }
             })
             .setOrigin(0.5)
             .setDepth(2000);
         this.nameText.setResolution(textResolution);
 
         this.bubble = scene.add
-            .text(x, y - 48, "", {
+            .text(x, y - 52, "", {
                 fontFamily: "\"Trebuchet MS\", \"Verdana\", sans-serif",
-                fontSize: isTouch ? "17px" : "13px",
+                fontSize: bubbleFont,
                 color: "#fff",
                 backgroundColor: "rgba(31, 19, 28, 0.82)",
                 stroke: "#f6b8d6",
-                strokeThickness: isTouch ? 2 : 1,
-                padding: { x: isTouch ? 10 : 8, y: isTouch ? 6 : 5 },
-                wordWrap: { width: isTouch ? 240 : 170 }
+                strokeThickness: 1,
+                padding: { x: this.isTouch ? 8 : 7, y: this.isTouch ? 4 : 3 },
+                wordWrap: { width: this.isTouch ? 200 : 160 }
             })
             .setOrigin(0.5)
             .setAlpha(0)
@@ -59,6 +63,7 @@ export class PlayerEntity {
     }
 
     updateDepth() {
+        this.shadow.setDepth(990 + this.sprite.y);
         this.sprite.setDepth(1000 + this.sprite.y);
         this.nameText.setDepth(2000 + this.sprite.y);
         this.bubble.setDepth(2001 + this.sprite.y);
@@ -87,8 +92,9 @@ export class PlayerEntity {
     }
 
     syncVisuals() {
-        this.nameText.setPosition(this.sprite.x, this.sprite.y - 30);
-        this.bubble.setPosition(this.sprite.x, this.sprite.y - 48);
+        this.shadow.setPosition(this.sprite.x, this.sprite.y + 13);
+        this.nameText.setPosition(this.sprite.x, this.sprite.y - 32);
+        this.bubble.setPosition(this.sprite.x, this.sprite.y - 52);
         this.updateFlowerInHand();
         this.updateDepth();
     }
@@ -166,7 +172,7 @@ export class PlayerEntity {
                     delay: 2600,
                     ease: "Sine.out",
                     onComplete: () => {
-                        this.bubble.y = this.sprite.y - 48;
+                        this.bubble.y = this.sprite.y - 52;
                     }
                 });
             }
@@ -209,6 +215,7 @@ export class PlayerEntity {
 
     destroy() {
         this.sprite.destroy();
+        this.shadow.destroy();
         this.nameText.destroy();
         this.bubble.destroy();
         this.heldFlowerPetal.destroy();

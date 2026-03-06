@@ -141,56 +141,80 @@ export function createTilesDataURL() {
 
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
+    const addNoise = (x, y, w, h, count, colors) => {
+        for (let i = 0; i < count; i += 1) {
+            const px = x + ((i * 17) % w);
+            const py = y + ((i * 29) % h);
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fillRect(px, py, 1, 1);
+        }
+    };
 
     // Grass with richer 2.5D texture.
-    ctx.fillStyle = "#2d6f3a";
+    const grassGrad = ctx.createLinearGradient(0, 0, size, size);
+    grassGrad.addColorStop(0, "#2f7540");
+    grassGrad.addColorStop(1, "#255f34");
+    ctx.fillStyle = grassGrad;
     ctx.fillRect(0, 0, size, size);
     ctx.fillStyle = "#3f874d";
-    for (let i = 0; i < 22; i += 1) {
-        ctx.fillRect((i * 11) % 62, (i * 17) % 62, 2, 2);
+    for (let i = 0; i < 30; i += 1) {
+        ctx.fillRect((i * 11) % 62, (i * 17) % 62, i % 5 === 0 ? 3 : 2, 2);
     }
     ctx.fillStyle = "#234f2f";
-    for (let i = 0; i < 11; i += 1) {
+    for (let i = 0; i < 16; i += 1) {
         ctx.fillRect((i * 19) % 62, (i * 23) % 62, 1, 3);
     }
+    addNoise(0, 0, size, size, 120, ["#2f7b41", "#3d8f52", "#1f4f2e"]);
 
     // Road with edge shading and lane line.
-    ctx.fillStyle = "#4b4b4f";
+    const roadGrad = ctx.createLinearGradient(size, 0, size * 2, size);
+    roadGrad.addColorStop(0, "#515157");
+    roadGrad.addColorStop(1, "#3f3f45");
+    ctx.fillStyle = roadGrad;
     ctx.fillRect(size, 0, size, size);
     ctx.fillStyle = "#3e3e42";
     ctx.fillRect(size, 0, 4, size);
     ctx.fillRect(size + size - 4, 0, 4, size);
-    ctx.fillStyle = "#f2f2d4";
-    ctx.fillRect(size + 28, 0, 8, size);
+    ctx.fillStyle = "#dcdcc2";
+    ctx.fillRect(size + 30, 0, 4, size);
     ctx.fillStyle = "#2f2f33";
     for (let y = 0; y < size; y += 8) {
-        ctx.fillRect(size + 12, y, 2, 4);
-        ctx.fillRect(size + 50, y + 4, 2, 4);
+        ctx.fillRect(size + 12, y, 2, 3);
+        ctx.fillRect(size + 50, y + 4, 2, 3);
     }
+    addNoise(size, 0, size, size, 110, ["#4a4a50", "#58585f", "#35353b"]);
 
     // Building blocker texture 1.
-    ctx.fillStyle = "#7e6b57";
+    const brickGrad = ctx.createLinearGradient(size * 2, 0, size * 3, size);
+    brickGrad.addColorStop(0, "#836f5a");
+    brickGrad.addColorStop(1, "#71604e");
+    ctx.fillStyle = brickGrad;
     ctx.fillRect(size * 2, 0, size, size);
-    ctx.fillStyle = "#8d7a63";
-    for (let y = 0; y < size; y += 12) {
+    for (let y = 0; y < size; y += 10) {
+        ctx.fillStyle = y % 20 === 0 ? "#97826a" : "#8a765f";
         ctx.fillRect(size * 2, y, size, 2);
     }
-    ctx.fillStyle = "#6f5e4c";
+    ctx.fillStyle = "#6d5a48";
     for (let x = 0; x < size; x += 16) {
         ctx.fillRect(size * 2 + x, 0, 2, size);
     }
+    addNoise(size * 2, 0, size, size, 90, ["#8d7862", "#6f5d4c", "#a18d77"]);
 
     // Building blocker texture 2 with faux roof highlight.
-    ctx.fillStyle = "#b9a48e";
+    const concreteGrad = ctx.createLinearGradient(size * 3, 0, size * 4, size);
+    concreteGrad.addColorStop(0, "#c0ac96");
+    concreteGrad.addColorStop(1, "#a7927a");
+    ctx.fillStyle = concreteGrad;
     ctx.fillRect(size * 3, 0, size, size);
-    ctx.fillStyle = "#a0866c";
+    ctx.fillStyle = "#9f8468";
     ctx.fillRect(size * 3 + 10, 12, 44, 40);
-    ctx.fillStyle = "#cbb7a2";
+    ctx.fillStyle = "#d1bea9";
     ctx.fillRect(size * 3, 0, size, 7);
-    ctx.fillStyle = "#8f775f";
+    ctx.fillStyle = "#8a7157";
     for (let i = 0; i < 6; i += 1) {
         ctx.fillRect(size * 3 + 8 + i * 9, 12, 2, 40);
     }
+    addNoise(size * 3, 0, size, size, 80, ["#c5b19b", "#9f8a74", "#b39e87"]);
 
     return canvas.toDataURL("image/png");
 }

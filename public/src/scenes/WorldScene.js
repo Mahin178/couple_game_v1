@@ -1095,6 +1095,7 @@ export class WorldScene extends Phaser.Scene {
 
             const hidden = Boolean(state.inVehicle);
             remote.sprite.setVisible(!hidden);
+            remote.shadow?.setVisible(!hidden);
             remote.nameText.setVisible(!hidden);
             remote.bubble.setVisible(!hidden);
         }
@@ -1152,7 +1153,7 @@ export class WorldScene extends Phaser.Scene {
             if (this.getDrivingVehicleId()) {
                 this.updateDrivingMovement(dt, time);
             } else {
-                this.updateLocalMovement(time);
+                this.updateLocalMovement(time, dt);
             }
 
             if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.exitCar) && this.isLocalInVehicle()) {
@@ -1217,16 +1218,18 @@ export class WorldScene extends Phaser.Scene {
         return this.isChatTyping || Boolean(focusedInput);
     }
 
-    updateLocalMovement(time) {
+    updateLocalMovement(time, dt) {
         if (this.isLocalInVehicle()) {
             this.localPlayer.setVelocity(0, 0);
             this.localPlayer.sprite.setVisible(false);
+            this.localPlayer.shadow?.setVisible(false);
             this.localPlayer.nameText.setVisible(false);
             this.localPlayer.bubble.setVisible(false);
             return;
         }
 
         this.localPlayer.sprite.setVisible(true);
+        this.localPlayer.shadow?.setVisible(true);
         this.localPlayer.nameText.setVisible(true);
         this.localPlayer.bubble.setVisible(true);
 
@@ -1260,7 +1263,9 @@ export class WorldScene extends Phaser.Scene {
 
         const targetVx = vec.x * PLAYER_SPEED;
         const targetVy = vec.y * PLAYER_SPEED;
-        const blend = vec.lengthSq() > 0.01 ? 0.34 : 0.26;
+        const moving = vec.lengthSq() > 0.01;
+        const lerpRate = moving ? 12 : 16;
+        const blend = 1 - Math.exp(-lerpRate * dt);
         body.velocity.x = Phaser.Math.Linear(body.velocity.x, targetVx, blend);
         body.velocity.y = Phaser.Math.Linear(body.velocity.y, targetVy, blend);
         if (Math.abs(body.velocity.x) < 2) {
@@ -1271,7 +1276,7 @@ export class WorldScene extends Phaser.Scene {
         }
 
         const velocitySq = body.velocity.lengthSq();
-        const animState = velocitySq > 64 ? "walk" : "idle";
+        const animState = velocitySq > 40 ? "walk" : "idle";
         let direction = this.localPlayer.lastState.direction;
 
         if (Math.abs(body.velocity.x) > Math.abs(body.velocity.y)) {
@@ -1430,6 +1435,7 @@ export class WorldScene extends Phaser.Scene {
         const seat = this.getLocalSeat();
         if (!seat) {
             this.localPlayer.sprite.setVisible(true);
+            this.localPlayer.shadow?.setVisible(true);
             this.localPlayer.nameText.setVisible(true);
             this.localPlayer.bubble.setVisible(true);
             return;
@@ -1456,6 +1462,7 @@ export class WorldScene extends Phaser.Scene {
         this.localPlayer.lastState.y = this.localPlayer.sprite.y;
         this.localPlayer.syncVisuals();
         this.localPlayer.sprite.setVisible(false);
+        this.localPlayer.shadow?.setVisible(false);
         this.localPlayer.nameText.setVisible(false);
         this.localPlayer.bubble.setVisible(false);
     }
@@ -2801,6 +2808,18 @@ export class WorldScene extends Phaser.Scene {
     }
 
     createDayNightOverlay() {
+        this.atmosphereTop = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x6ea6d8, 0.08);
+        this.atmosphereTop.setOrigin(0, 0);
+        this.atmosphereTop.setScrollFactor(0);
+        this.atmosphereTop.setBlendMode(Phaser.BlendModes.SCREEN);
+        this.atmosphereTop.setDepth(4998);
+
+        this.atmosphereBottom = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x1d3248, 0.1);
+        this.atmosphereBottom.setOrigin(0, 0);
+        this.atmosphereBottom.setScrollFactor(0);
+        this.atmosphereBottom.setBlendMode(Phaser.BlendModes.MULTIPLY);
+        this.atmosphereBottom.setDepth(4999);
+
         this.dayNight = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x0a1130, 0.1);
         this.dayNight.setOrigin(0, 0);
         this.dayNight.setScrollFactor(0);
@@ -2810,8 +2829,12 @@ export class WorldScene extends Phaser.Scene {
 
     updateDayNight(time) {
         const cycle = (Math.sin(time / 14000) + 1) / 2;
+        this.atmosphereTop?.setAlpha(0.06 + cycle * 0.06);
+        this.atmosphereBottom?.setAlpha(0.08 + cycle * 0.09);
         this.dayNight.setAlpha(0.06 + cycle * 0.22);
         if (this.dayNight.width !== this.scale.width || this.dayNight.height !== this.scale.height) {
+            this.atmosphereTop?.setSize(this.scale.width, this.scale.height);
+            this.atmosphereBottom?.setSize(this.scale.width, this.scale.height);
             this.dayNight.setSize(this.scale.width, this.scale.height);
         }
     }
@@ -2931,6 +2954,8 @@ export class WorldScene extends Phaser.Scene {
 
         this.targetRing?.destroy();
         this.shotLine?.destroy();
+        this.atmosphereTop?.destroy();
+        this.atmosphereBottom?.destroy();
 
         this.hud.showDrivePad(false);
         this.hud.showMobileBuildAction(false);

@@ -8,8 +8,8 @@ export const gameConfig = {
     width: window.innerWidth,
     height: window.innerHeight,
     backgroundColor: "#0a1112",
-    pixelArt: true,
-    roundPixels: true,
+    pixelArt: isTouchDevice,
+    roundPixels: isTouchDevice,
     resolution: isTouchDevice ? Math.min(1.5, deviceResolution) : Math.min(2, deviceResolution),
     fps: {
         target: 60,
@@ -24,7 +24,7 @@ export const gameConfig = {
         }
     },
     render: {
-        antialias: false,
+        antialias: !isTouchDevice,
         powerPreference: "high-performance"
     },
     scale: {
