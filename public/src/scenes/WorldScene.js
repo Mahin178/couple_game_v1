@@ -167,7 +167,6 @@ export class WorldScene extends Phaser.Scene {
 
         this.createMap();
         this.createSafeZone();
-        this.createWorldDetails();
         this.createBuildSystem();
         this.createVehicles();
         this.createResourceNodes();
@@ -189,6 +188,9 @@ export class WorldScene extends Phaser.Scene {
         this.bindMobileUi();
         this.bindMapUi();
 
+        // Delay heavy decorative drawing so controls feel responsive immediately on load.
+        this.time.delayedCall(120, () => this.createWorldDetails());
+
         this.updateBuildInfoText();
         this.updateBackpackInfo();
 
@@ -196,10 +198,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     setMission(text) {
-        this.hud.setMission(text);
-        if (this.isTouchDevice) {
-            this.showMissionPeek(1900);
-        }
+        this.lastMission = text;
     }
 
     createMap() {
@@ -884,11 +883,6 @@ export class WorldScene extends Phaser.Scene {
             this.hud.chatToggle.addEventListener("click", this.mobileChatHandler);
         }
 
-        if (this.hud.missionBox) {
-            this.mobileMissionHandler = () => this.showMissionPeek(2000);
-            this.hud.missionBox.addEventListener("click", this.mobileMissionHandler);
-        }
-
         this.setMobileChatOpen(false);
     }
 
@@ -901,19 +895,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     showMissionPeek(durationMs = 2000) {
-        if (!this.isTouchDevice) {
-            return;
-        }
-
-        document.body.classList.add("mobile-mission-open");
-        if (this.mobileMissionTimer) {
-            clearTimeout(this.mobileMissionTimer);
-        }
-
-        this.mobileMissionTimer = setTimeout(() => {
-            document.body.classList.remove("mobile-mission-open");
-            this.mobileMissionTimer = null;
-        }, durationMs);
+        return durationMs;
     }
 
     createMapUi() {
@@ -2753,18 +2735,10 @@ export class WorldScene extends Phaser.Scene {
     }
 
     updateBondMeter() {
-        let nearest = 99999;
-
-        for (const p of this.players.values()) {
-            const d = Phaser.Math.Distance.Between(this.localPlayer.sprite.x, this.localPlayer.sprite.y, p.sprite.x, p.sprite.y);
-            nearest = Math.min(nearest, d);
-        }
-
-        const proximity = nearest === 99999 ? 44 : Phaser.Math.Clamp(100 - nearest / 10, 20, 100);
-        const hungerPenalty = Phaser.Math.Clamp((100 - this.hunger) * 0.42, 0, 38);
-        const bitePenalty = this.bitesTaken * 22;
-        const meter = clamp(proximity - hungerPenalty - bitePenalty, 8, 100);
-        this.hud.setLove(Math.round(meter));
+        const base = 100 - this.bitesTaken * 50;
+        const hungerPenalty = Phaser.Math.Clamp((100 - this.hunger) * 0.35, 0, 35);
+        const health = clamp(base - hungerPenalty, 0, 100);
+        this.hud.setLove(Math.round(health));
     }
 
     cleanup() {
@@ -2811,13 +2785,6 @@ export class WorldScene extends Phaser.Scene {
         }
         if (this.hud.chatToggle && this.mobileChatHandler) {
             this.hud.chatToggle.removeEventListener("click", this.mobileChatHandler);
-        }
-        if (this.hud.missionBox && this.mobileMissionHandler) {
-            this.hud.missionBox.removeEventListener("click", this.mobileMissionHandler);
-        }
-        if (this.mobileMissionTimer) {
-            clearTimeout(this.mobileMissionTimer);
-            this.mobileMissionTimer = null;
         }
 
         for (const { button, handler } of this.emojiHandlers || []) {
@@ -2888,7 +2855,6 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showGameOver(false);
         this.hud.showFullMap(false);
         document.body.classList.remove("mobile-chat-open");
-        document.body.classList.remove("mobile-mission-open");
         for (const name of Object.keys(this.hud.buttons)) {
             this.hud.showAction(name, false);
         }

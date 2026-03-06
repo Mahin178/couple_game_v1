@@ -3,7 +3,6 @@ export function createHudControls() {
     const chatInput = document.getElementById("chatInput");
     const emojiButtons = Array.from(document.querySelectorAll(".emojiBtn"));
     const loveFill = document.getElementById("loveFill");
-    const missionBox = document.getElementById("missionBox");
     const authorTag = document.getElementById("authorTag");
     const chatToggle = document.getElementById("btnChatToggle");
     const materialCounts = {
@@ -52,7 +51,6 @@ export function createHudControls() {
         chatForm,
         chatInput,
         emojiButtons,
-        missionBox,
         authorTag,
         chatToggle,
         materialCounts,
@@ -72,7 +70,7 @@ export function createHudControls() {
             loveFill.style.width = `${clamped}%`;
         },
         setMission(text) {
-            missionBox.textContent = `Mission: ${text}`;
+            return text;
         },
         setBuildModeLabel(text) {
             if (buttons.buildMode) {

@@ -48,7 +48,6 @@ canvas {
     z-index: 1200;
     pointer-events: none;
     font-size: 13px;
-    letter-spacing: 0.3px;
     color: rgba(255, 241, 247, 0.92);
     background: rgba(24, 16, 33, 0.76);
     border: 1px solid rgba(255, 255, 255, 0.22);
@@ -56,23 +55,97 @@ canvas {
     padding: 5px 9px;
 }
 
-#topBar {
+#topHud {
     position: fixed;
     top: 12px;
     left: 12px;
     right: 12px;
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
+    pointer-events: none;
+}
+
+#backpackCard {
+    position: fixed;
+    left: 12px;
+    top: 12px;
+    width: min(52vw, 360px);
+    border-radius: 14px;
+    padding: 10px 12px 10px 14px;
+    background:
+        radial-gradient(circle at 18% 16%, rgba(255, 255, 255, 0.18), transparent 54%),
+        linear-gradient(145deg, rgba(119, 82, 54, 0.9), rgba(85, 58, 40, 0.92));
+    border: 1px solid rgba(255, 228, 190, 0.45);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
+}
+
+#backpackCard::before {
+    content: "";
+    position: absolute;
+    width: 34px;
+    height: 16px;
+    left: 14px;
+    top: -9px;
+    border-radius: 10px 10px 2px 2px;
+    background: rgba(80, 51, 31, 0.92);
+    border: 1px solid rgba(255, 228, 190, 0.45);
+}
+
+#backpackTitle {
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #ffe7c7;
+    margin-bottom: 4px;
+}
+
+#backpackInfo {
+    background: rgba(30, 20, 12, 0.3);
+    border: 1px dashed rgba(255, 228, 190, 0.38);
+    border-radius: 8px;
+    padding: 7px 8px;
+    font-size: 11px;
+    line-height: 1.35;
+    color: #fff3de;
+    max-height: 48px;
+    overflow: hidden;
+}
+
+#loveMeterWrap {
+    min-width: min(44vw, 360px);
+    position: fixed;
+    left: 50%;
+    top: 12px;
+    transform: translateX(-50%);
+    background:
+        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.2), transparent 50%),
+        linear-gradient(145deg, rgba(34, 52, 68, 0.9), rgba(22, 36, 48, 0.92));
+    border: 1px solid rgba(188, 226, 255, 0.5);
+    border-radius: 14px;
+    padding: 10px 12px;
+    box-shadow: 0 8px 24px rgba(18, 20, 34, 0.22);
+}
+
+#loveMeter {
+    margin-top: 6px;
+    width: 100%;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#loveFill {
+    height: 100%;
+    width: 35%;
+    background: linear-gradient(90deg, #f0626c, #f0c252, #6ce0a3);
+    transition: width 260ms ease;
 }
 
 #miniMapWrap {
     position: fixed;
-    top: 78px;
+    top: 88px;
     right: 12px;
-    width: 174px;
-    height: 174px;
+    width: 158px;
+    height: 158px;
     border-radius: 50%;
     overflow: hidden;
     border: 3px solid rgba(255, 255, 255, 0.82);
@@ -127,76 +200,72 @@ canvas {
     height: 36px;
     border-radius: 50%;
     border: 1px solid rgba(255, 255, 255, 0.4);
-    background: rgba(255, 95, 120, 0.9);
+    background: linear-gradient(140deg, #e15766, #f28664);
     color: #fff;
     font-size: 18px;
     pointer-events: auto;
 }
 
-#missionBox,
-#loveMeterWrap {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 12px;
-    backdrop-filter: blur(5px);
-    font-size: 14px;
-    color: #f7f3ff;
-    box-shadow: 0 8px 24px rgba(18, 20, 34, 0.22);
-}
-
-#missionBox {
-    cursor: pointer;
-}
-
-#loveMeterWrap {
-    min-width: 140px;
-}
-
-#loveMeter {
-    margin-top: 6px;
-    width: 100%;
-    height: 10px;
-    background: rgba(255, 255, 255, 0.16);
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-#loveFill {
-    height: 100%;
-    width: 35%;
-    background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
-    transition: width 300ms ease;
-}
-
-#chatForm {
-    position: fixed;
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: max(14px, env(safe-area-inset-bottom));
-    width: min(560px, calc(100vw - 24px));
-    display: flex;
-    gap: 8px;
-    pointer-events: auto;
-}
-
 #interactionPanel {
     position: fixed;
-    left: 50%;
-    top: 72px;
-    transform: translateX(-50%);
+    right: 16px;
+    bottom: calc(94px + env(safe-area-inset-bottom));
+    width: 210px;
+    height: 210px;
+    border-radius: 50%;
+    padding: 16px;
+    background:
+        radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.18), transparent 58%),
+        rgba(13, 26, 38, 0.66);
+    border: 1px solid rgba(190, 230, 255, 0.32);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
     display: flex;
     gap: 8px;
     pointer-events: auto;
     flex-wrap: wrap;
     justify-content: center;
-    width: min(640px, calc(100vw - 20px));
+    align-content: center;
 }
+
+.actionBtn {
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: #fff;
+    width: 58px;
+    height: 58px;
+    padding: 0;
+    font-weight: 700;
+    font-size: 11px;
+    line-height: 1.1;
+    display: none;
+    touch-action: manipulation;
+    box-shadow: 0 8px 22px rgba(15, 23, 37, 0.28);
+    transition: transform 140ms ease, filter 140ms ease;
+    animation: hudPop 220ms ease;
+}
+
+.actionBtn:active {
+    transform: scale(0.95);
+    filter: brightness(1.12);
+}
+
+#btnDrive { background: linear-gradient(140deg, #2f6fdf, #2ba2e2); border-color: rgba(132, 196, 255, 0.7); }
+#btnSit { background: linear-gradient(140deg, #5f6bcf, #7c8ef2); border-color: rgba(167, 178, 255, 0.65); }
+#btnExitCar { background: linear-gradient(140deg, #6f7892, #8892aa); border-color: rgba(206, 221, 255, 0.58); }
+#btnOpenGate { background: linear-gradient(140deg, #db7f3b, #efb14e); border-color: rgba(255, 220, 154, 0.7); }
+#btnCollect { background: linear-gradient(140deg, #2f9f58, #59c46d); border-color: rgba(170, 245, 176, 0.68); }
+#btnShoot { background: linear-gradient(140deg, #c54848, #e56c48); border-color: rgba(255, 184, 184, 0.68); }
+#btnEat { background: linear-gradient(140deg, #4d8b35, #84b93f); border-color: rgba(210, 250, 154, 0.64); }
+#btnBuildMode { background: linear-gradient(140deg, #9d4eb8, #bb67ce); border-color: rgba(235, 183, 255, 0.66); }
+#btnPlaceBlock { background: linear-gradient(140deg, #2f8c73, #49b89b); border-color: rgba(170, 251, 226, 0.64); }
+#btnRemoveBlock { background: linear-gradient(140deg, #9a4b52, #c05d67); border-color: rgba(255, 184, 191, 0.65); }
+#btnCycleMaterial { background: linear-gradient(140deg, #8b6640, #bc9154); border-color: rgba(255, 224, 180, 0.64); }
+#btnCycleWeapon { background: linear-gradient(140deg, #5758aa, #7979d6); border-color: rgba(196, 202, 255, 0.66); }
 
 #buildInfo {
     position: fixed;
     left: 12px;
-    top: 74px;
+    top: 86px;
     background: rgba(12, 19, 22, 0.78);
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -207,24 +276,10 @@ canvas {
     color: #f8f7ef;
 }
 
-#backpackInfo {
-    position: fixed;
-    left: 12px;
-    top: 122px;
-    background: rgba(12, 19, 22, 0.78);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 10px;
-    pointer-events: none;
-    font-size: 13px;
-    max-width: min(520px, calc(100vw - 24px));
-    color: #f8f7ef;
-}
-
 #mobileMaterialPanel {
     position: fixed;
     left: 10px;
-    top: 116px;
+    top: 94px;
     z-index: 1200;
     pointer-events: none;
     display: none;
@@ -241,41 +296,10 @@ canvas {
     color: #e8f1ff;
 }
 
-.actionBtn {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: linear-gradient(140deg, rgba(30, 42, 56, 0.92), rgba(23, 30, 42, 0.92));
-    color: #fff;
-    padding: 8px 12px;
-    font-weight: 700;
-    display: none;
-    touch-action: manipulation;
-    box-shadow: 0 8px 22px rgba(15, 23, 37, 0.28);
-    transition: transform 140ms ease, filter 140ms ease;
-}
-
-.actionBtn:active {
-    transform: scale(0.97);
-    filter: brightness(1.08);
-}
-
-#btnDrive { background: linear-gradient(140deg, #2f6fdf, #2ba2e2); border-color: rgba(132, 196, 255, 0.7); }
-#btnSit { background: linear-gradient(140deg, #5f6bcf, #7c8ef2); border-color: rgba(167, 178, 255, 0.65); }
-#btnExitCar { background: linear-gradient(140deg, #6f7892, #8892aa); border-color: rgba(206, 221, 255, 0.58); }
-#btnOpenGate { background: linear-gradient(140deg, #db7f3b, #efb14e); border-color: rgba(255, 220, 154, 0.7); }
-#btnCollect { background: linear-gradient(140deg, #2f9f58, #59c46d); border-color: rgba(170, 245, 176, 0.68); }
-#btnShoot { background: linear-gradient(140deg, #c54848, #e56c48); border-color: rgba(255, 184, 184, 0.68); }
-#btnEat { background: linear-gradient(140deg, #4d8b35, #84b93f); border-color: rgba(210, 250, 154, 0.64); }
-#btnBuildMode { background: linear-gradient(140deg, #9d4eb8, #bb67ce); border-color: rgba(235, 183, 255, 0.66); }
-#btnPlaceBlock { background: linear-gradient(140deg, #2f8c73, #49b89b); border-color: rgba(170, 251, 226, 0.64); }
-#btnRemoveBlock { background: linear-gradient(140deg, #9a4b52, #c05d67); border-color: rgba(255, 184, 191, 0.65); }
-#btnCycleMaterial { background: linear-gradient(140deg, #8b6640, #bc9154); border-color: rgba(255, 224, 180, 0.64); }
-#btnCycleWeapon { background: linear-gradient(140deg, #5758aa, #7979d6); border-color: rgba(196, 202, 255, 0.66); }
-
 #emojiBar {
     position: fixed;
     right: 12px;
-    bottom: calc(74px + env(safe-area-inset-bottom));
+    bottom: calc(14px + env(safe-area-inset-bottom));
     display: flex;
     gap: 8px;
     pointer-events: auto;
@@ -287,7 +311,6 @@ canvas {
 
 .emojiBtn {
     border: 0;
-    background: rgba(255, 255, 255, 0.16);
     color: #fff;
     border-radius: 8px;
     padding: 4px 7px;
@@ -295,6 +318,7 @@ canvas {
     line-height: 1;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
+
 .emojiBtn:nth-child(1) { background: linear-gradient(140deg, #d84f75, #ee7d99); }
 .emojiBtn:nth-child(2) { background: linear-gradient(140deg, #cc8d2e, #e8ae4b); }
 .emojiBtn:nth-child(3) { background: linear-gradient(140deg, #a550d4, #d373ef); }
@@ -317,6 +341,17 @@ canvas {
     touch-action: manipulation;
 }
 
+#chatForm {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: max(14px, env(safe-area-inset-bottom));
+    width: min(560px, calc(100vw - 24px));
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+}
+
 #chatInput {
     flex: 1;
     padding: 12px 14px;
@@ -325,14 +360,7 @@ canvas {
     outline: none;
     background: rgba(255, 255, 255, 0.95);
     color: #382234;
-    font-family: "Trebuchet MS", "Lucida Sans Unicode", sans-serif;
-    letter-spacing: 0.2px;
     font-size: 16px;
-}
-
-#chatInput:focus {
-    border-color: #e77db3;
-    box-shadow: 0 0 0 2px rgba(231, 125, 179, 0.2);
 }
 
 #chatSend {
@@ -375,22 +403,21 @@ canvas {
 
 .mobileBuildBtn {
     position: fixed;
-    left: 156px;
-    bottom: calc(132px + env(safe-area-inset-bottom));
-    min-width: 92px;
-    height: 42px;
-    border-radius: 11px;
+    right: 150px;
+    bottom: calc(130px + env(safe-area-inset-bottom));
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
     border: 1px solid var(--border);
-    background: linear-gradient(130deg, rgba(255, 108, 138, 0.92), rgba(112, 163, 255, 0.92));
+    background: linear-gradient(130deg, #f0646f, #f2a652);
     color: #fff;
-    font-weight: 700;
+    font-weight: 800;
     display: none;
     align-items: center;
     justify-content: center;
     pointer-events: auto;
     touch-action: manipulation;
 }
-#btnMobileBuildAction { background: linear-gradient(130deg, #f0646f, #f2a652); border-color: rgba(255, 225, 178, 0.66); }
 
 #drivePad {
     position: fixed;
@@ -412,12 +439,12 @@ canvas {
     margin: 4px;
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.32);
-    background: rgba(15, 26, 38, 0.85);
     color: #fff;
     font-size: 24px;
     font-weight: 700;
     touch-action: none;
 }
+
 #driveUp { background: linear-gradient(130deg, #3a73d0, #5c90df); }
 #driveLeft { background: linear-gradient(130deg, #6574a8, #7f8fbe); }
 #driveRight { background: linear-gradient(130deg, #6574a8, #7f8fbe); }
@@ -460,10 +487,6 @@ canvas {
     cursor: pointer;
 }
 
-#btnCloseFullMap {
-    background: linear-gradient(140deg, #e15766, #f28664);
-}
-
 @media (max-width: 860px), (pointer: coarse) {
     #mobileJoystick {
         display: block;
@@ -475,20 +498,11 @@ canvas {
         bottom: calc(10px + env(safe-area-inset-bottom));
     }
 
-    #topBar {
-        font-size: 12px;
-    }
-
     #miniMapWrap {
-        width: 124px;
-        height: 124px;
-        top: 114px;
+        width: 118px;
+        height: 118px;
+        top: 86px;
         right: 10px;
-    }
-
-    #missionBox,
-    #loveMeterWrap {
-        padding: 8px 10px;
     }
 
     #chatForm {
@@ -509,7 +523,7 @@ canvas {
         right: auto;
         transform: translateX(-50%);
         bottom: calc(10px + env(safe-area-inset-bottom));
-        max-width: calc(100vw - 134px);
+        max-width: calc(100vw - 132px);
         overflow-x: auto;
     }
 
@@ -517,22 +531,19 @@ canvas {
         bottom: calc(62px + env(safe-area-inset-bottom));
     }
 
-    body.mobile-chat-open #authorTag {
-        display: none;
-    }
-
     #interactionPanel {
-        top: 58px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: min(96vw, 620px);
+        right: 8px;
+        bottom: calc(84px + env(safe-area-inset-bottom));
+        width: 196px;
+        height: 196px;
         gap: 6px;
+        padding: 14px;
     }
 
     .actionBtn {
-        font-size: 12px;
-        padding: 7px 9px;
-        border-radius: 9px;
+        width: 54px;
+        height: 54px;
+        font-size: 10px;
     }
 
     .mobileBuildBtn {
@@ -543,69 +554,34 @@ canvas {
         display: none;
     }
 
-    #backpackInfo {
-        display: none;
-    }
-
     #mobileMaterialPanel {
-        display: block;
-        top: 248px;
-    }
-
-    #missionBox {
-        max-width: 74px;
-        overflow: hidden;
-        white-space: nowrap;
-        opacity: 0.65;
-        transition: max-width 180ms ease, opacity 180ms ease;
-    }
-
-    body.mobile-mission-open #missionBox {
-        max-width: min(74vw, 520px);
-        white-space: normal;
-        opacity: 1;
-    }
-
-    #btnBuildMode {
-        min-width: 96px;
+        display: none;
     }
 
     #authorTag {
         left: 8px;
         bottom: calc(10px + env(safe-area-inset-bottom));
         font-size: 12px;
-        background: rgba(18, 15, 26, 0.88);
-    }
-
-    #chatSend {
-        min-width: 74px;
-    }
-
-    #chatInput {
-        font-size: 15px;
-        min-width: 0;
     }
 }
 
 @media (max-width: 560px), (pointer: coarse) {
-    #topBar {
-        top: 8px;
+    #backpackCard {
         left: 8px;
-        right: 8px;
-    }
-
-    #missionBox {
-        max-width: 62px;
+        top: 8px;
+        width: min(56vw, 280px);
     }
 
     #loveMeterWrap {
-        min-width: 108px;
+        top: 8px;
+        min-width: min(40vw, 190px);
+        padding: 8px 10px;
     }
 
     #miniMapWrap {
-        width: 112px;
-        height: 112px;
-        top: 108px;
+        width: 102px;
+        height: 102px;
+        top: 82px;
         right: 8px;
     }
 
@@ -622,14 +598,33 @@ canvas {
     }
 
     .mobileBuildBtn {
-        left: 132px;
-        bottom: calc(126px + env(safe-area-inset-bottom));
-        min-width: 78px;
-        height: 40px;
-        font-size: 12px;
+        right: 132px;
+        bottom: calc(124px + env(safe-area-inset-bottom));
+        width: 64px;
+        height: 64px;
+        font-size: 11px;
     }
 
-    #emojiBar {
-        max-width: calc(100vw - 118px);
+    #interactionPanel {
+        width: 176px;
+        height: 176px;
+        padding: 12px;
+    }
+
+    .actionBtn {
+        width: 48px;
+        height: 48px;
+        font-size: 9.5px;
+    }
+}
+
+@keyframes hudPop {
+    from {
+        transform: scale(0.88);
+        opacity: 0.4;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
     }
 }

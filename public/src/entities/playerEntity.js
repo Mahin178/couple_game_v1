@@ -10,15 +10,16 @@ export class PlayerEntity {
         this.isLocal = isLocal;
 
         this.sprite = scene.physics.add.sprite(x, y, textureKey, frameOffset);
-        this.sprite.setSize(14, 10);
-        this.sprite.setOffset(9, 22);
+        this.sprite.setScale(1, 1.12);
+        this.sprite.setSize(14, 11);
+        this.sprite.setOffset(9, 21);
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setDepth(1000 + y);
         const isTouch = window.matchMedia("(pointer: coarse)").matches;
         const textResolution = Math.max(1.5, Math.min(3, window.devicePixelRatio || 1.5));
 
         this.nameText = scene.add
-            .text(x, y - 26, this.name, {
+            .text(x, y - 30, this.name, {
                 fontFamily: "\"Trebuchet MS\", \"Verdana\", sans-serif",
                 fontSize: isTouch ? "17px" : "13px",
                 color: "#ffffff",
@@ -32,7 +33,7 @@ export class PlayerEntity {
         this.nameText.setResolution(textResolution);
 
         this.bubble = scene.add
-            .text(x, y - 44, "", {
+            .text(x, y - 48, "", {
                 fontFamily: "\"Trebuchet MS\", \"Verdana\", sans-serif",
                 fontSize: isTouch ? "17px" : "13px",
                 color: "#fff",
@@ -86,8 +87,8 @@ export class PlayerEntity {
     }
 
     syncVisuals() {
-        this.nameText.setPosition(this.sprite.x, this.sprite.y - 26);
-        this.bubble.setPosition(this.sprite.x, this.sprite.y - 44);
+        this.nameText.setPosition(this.sprite.x, this.sprite.y - 30);
+        this.bubble.setPosition(this.sprite.x, this.sprite.y - 48);
         this.updateFlowerInHand();
         this.updateDepth();
     }
@@ -165,7 +166,7 @@ export class PlayerEntity {
                     delay: 2600,
                     ease: "Sine.out",
                     onComplete: () => {
-                        this.bubble.y = this.sprite.y - 44;
+                        this.bubble.y = this.sprite.y - 48;
                     }
                 });
             }

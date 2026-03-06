@@ -14,17 +14,17 @@ function drawBody(ctx, frameX, frameY, bodyColor, direction, phase) {
     const legShift = swing;
 
     if (direction === "left" || direction === "right") {
-        ctx.fillRect(ox + 11, oy + 23 + legShift, 4, 7);
-        ctx.fillRect(ox + 17, oy + 23 - legShift, 4, 7);
+        ctx.fillRect(ox + 11, oy + 22 + legShift, 4, 8);
+        ctx.fillRect(ox + 17, oy + 22 - legShift, 4, 8);
     } else {
-        ctx.fillRect(ox + 11 + legShift, oy + 23, 4, 7);
-        ctx.fillRect(ox + 17 - legShift, oy + 23, 4, 7);
+        ctx.fillRect(ox + 11 + legShift, oy + 22, 4, 8);
+        ctx.fillRect(ox + 17 - legShift, oy + 22, 4, 8);
     }
 
     // Outfit
     ctx.fillStyle = clothMain;
-    ctx.fillRect(ox + 8, oy + 12, 16, 10);
-    ctx.fillRect(ox + 9, oy + 21, 14, 2);
+    ctx.fillRect(ox + 8, oy + 11, 16, 11);
+    ctx.fillRect(ox + 9, oy + 21, 14, 3);
     if (isWifeVariant) {
         ctx.fillStyle = "#f58eb2";
         ctx.fillRect(ox + 7, oy + 20, 18, 4);
