@@ -90,7 +90,7 @@ io.on("connection", (socket) => {
         frame: 0,
         direction: "down",
         animState: "idle",
-        name: `P-${socket.id.slice(0, 3)}`,
+        name: "Player",
         message: "",
         hasFlower: false,
         inVehicle: ""
@@ -100,6 +100,19 @@ io.on("connection", (socket) => {
     io.emit("updatePlayers", players);
     socket.emit("vehicleState", vehiclePayload());
     socket.emit("buildState", buildStatePayload());
+
+    socket.on("setProfile", (data) => {
+        const player = players[socket.id];
+        if (!player || !data) {
+            return;
+        }
+
+        if (typeof data.name === "string" && data.name.trim()) {
+            player.name = data.name.trim().slice(0, 18);
+        }
+
+        io.emit("updatePlayers", players);
+    });
 
     socket.on("move", (data) => {
         const player = players[socket.id];

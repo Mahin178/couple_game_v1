@@ -5,10 +5,14 @@ import { createHudControls } from "../ui/hud.js";
 
 const MAX_PLAYERS = 4;
 const PLAYER_SPEED = 190;
-const CAR_ACCEL = 560;
-const CAR_BRAKE = 760;
-const CAR_MAX_FORWARD = 440;
-const CAR_MAX_REVERSE = -190;
+const CAR_ACCEL = 780;
+const CAR_BRAKE = 980;
+const CAR_MAX_FORWARD = 520;
+const CAR_MAX_REVERSE = -220;
+const CAR_IDLE_DRAG = 3.6;
+const CAR_STEER_BASE = 1.9;
+const CAR_STEER_SPEED_FACTOR = 1.9;
+const CAR_HAND_BRAKE = 1550;
 const DIRECTIONS = ["down", "left", "right", "up"];
 const MATERIAL_ORDER = ["brick", "wood", "glass"];
 const MATERIAL_STYLE = {
@@ -98,6 +102,7 @@ export class WorldScene extends Phaser.Scene {
         this.buildTarget = null;
         this.unsubBuildState = null;
         this.unsubBuildPatch = null;
+        this.unsubConnect = null;
         this.pointerPlaceHandler = null;
         this.mobileBuildHandler = null;
         this.isTouchDevice = false;
@@ -108,6 +113,7 @@ export class WorldScene extends Phaser.Scene {
         this.mobileChatOpen = false;
         this.audioCtx = null;
         this.lastStepSoundTime = 0;
+        this.localDisplayName = "husband";
     }
 
     create() {
@@ -418,7 +424,7 @@ export class WorldScene extends Phaser.Scene {
             depot.y = cy;
         }
 
-        this.buildPreview = this.add.rectangle(0, 0, TILE_SIZE - 6, TILE_SIZE - 6, 0xbd6d58, 0.24).setDepth(2110).setVisible(false);
+        this.buildPreview = this.add.rectangle(0, 0, TILE_SIZE, TILE_SIZE, 0xbd6d58, 0.24).setDepth(2110).setVisible(false);
         this.buildPreview.setStrokeStyle(2, 0xfefefe, 0.7);
         this.crosshairH = this.add.rectangle(0, 0, 14, 2, 0xfefefe, 0.9).setDepth(2111).setVisible(false);
         this.crosshairV = this.add.rectangle(0, 0, 2, 14, 0xfefefe, 0.9).setDepth(2111).setVisible(false);
@@ -563,10 +569,13 @@ export class WorldScene extends Phaser.Scene {
             removeBlock: Phaser.Input.Keyboard.KeyCodes.G,
             matBrick: Phaser.Input.Keyboard.KeyCodes.ONE,
             matWood: Phaser.Input.Keyboard.KeyCodes.TWO,
-            matGlass: Phaser.Input.Keyboard.KeyCodes.THREE
+            matGlass: Phaser.Input.Keyboard.KeyCodes.THREE,
+            handBrake: Phaser.Input.Keyboard.KeyCodes.SPACE
         });
 
         this.isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
+        this.localDisplayName = this.isTouchDevice ? "wife" : "husband";
+        this.socketAdapter.setProfile({ name: this.localDisplayName });
         if (this.isTouchDevice) {
             const root = document.getElementById("mobileJoystick");
             const knob = document.getElementById("joystickKnob");
@@ -606,7 +615,7 @@ export class WorldScene extends Phaser.Scene {
 
     createLocalPlayer() {
         const spawn = this.scene.settings.data?.spawn || { x: 500, y: 500 };
-        this.localPlayer = new PlayerEntity(this, spawn.x, spawn.y, "player", 0, "local", "You", true);
+        this.localPlayer = new PlayerEntity(this, spawn.x, spawn.y, "player", 0, "local", this.localDisplayName, true);
         this.physics.add.collider(this.localPlayer.sprite, this.blockLayer);
         this.physics.add.collider(this.localPlayer.sprite, this.interiorWalls);
         if (this.buildBlockColliders) {
@@ -621,6 +630,10 @@ export class WorldScene extends Phaser.Scene {
     }
 
     setupNetworking() {
+        this.unsubConnect = this.socketAdapter.on("connect", () => {
+            this.socketAdapter.setProfile({ name: this.localDisplayName });
+        });
+
         this.unsubPlayers = this.socketAdapter.on("players", (players) => {
             this.playerList = players;
             const me = players[this.socketAdapter.id];
@@ -931,23 +944,24 @@ export class WorldScene extends Phaser.Scene {
     update(time, delta) {
         const dt = delta / 1000;
         this.localPlayer.setHasFlower(this.localHasFlower);
+        const typingInChat = this.isTypingInChat();
 
-        if (Phaser.Input.Keyboard.JustDown(this.keys.buildMode) && !this.isGameOver && !this.isInInterior) {
+        if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.buildMode) && !this.isGameOver && !this.isInInterior) {
             this.toggleBuildMode();
         }
-        if (Phaser.Input.Keyboard.JustDown(this.keys.placeBlock)) {
+        if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.placeBlock)) {
             this.tryPlaceBlock();
         }
-        if (Phaser.Input.Keyboard.JustDown(this.keys.removeBlock)) {
+        if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.removeBlock)) {
             this.tryRemoveBlock();
         }
-        if (Phaser.Input.Keyboard.JustDown(this.keys.matBrick)) {
+        if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.matBrick)) {
             this.setMaterial("brick");
         }
-        if (Phaser.Input.Keyboard.JustDown(this.keys.matWood)) {
+        if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.matWood)) {
             this.setMaterial("wood");
         }
-        if (Phaser.Input.Keyboard.JustDown(this.keys.matGlass)) {
+        if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.matGlass)) {
             this.setMaterial("glass");
         }
 
@@ -958,7 +972,7 @@ export class WorldScene extends Phaser.Scene {
                 this.updateLocalMovement(time);
             }
 
-            if (Phaser.Input.Keyboard.JustDown(this.keys.exitCar) && this.isLocalInVehicle()) {
+            if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.exitCar) && this.isLocalInVehicle()) {
                 this.exitCar();
             }
         }
@@ -977,6 +991,11 @@ export class WorldScene extends Phaser.Scene {
         if (!this.isGameOver) {
             this.sendMoveIfNeeded(time);
         }
+    }
+
+    isTypingInChat() {
+        const active = document.activeElement;
+        return active === this.chatInput;
     }
 
     updateLocalMovement(time) {
@@ -1106,21 +1125,36 @@ export class WorldScene extends Phaser.Scene {
         throttle = clamp(throttle, -1, 1);
         steer = clamp(steer, -1, 1);
 
-        if (Math.abs(throttle) > 0.02) {
-            physics.speed += throttle * CAR_ACCEL * dt;
+        const handBraking = this.keys.handBrake?.isDown;
+        const sameDirection =
+            (physics.speed >= 0 && throttle >= 0) ||
+            (physics.speed < 0 && throttle <= 0);
+
+        if (Math.abs(throttle) > 0.03) {
+            if (sameDirection) {
+                physics.speed += throttle * CAR_ACCEL * dt;
+            } else {
+                const brakeForce = (CAR_BRAKE + CAR_HAND_BRAKE * 0.35) * dt;
+                physics.speed = Phaser.Math.Linear(physics.speed, 0, Math.min(1, brakeForce / Math.max(1, Math.abs(physics.speed))));
+                if (Math.abs(physics.speed) < 12) {
+                    physics.speed += throttle * (CAR_ACCEL * 0.8) * dt;
+                }
+            }
         } else {
-            physics.speed = Phaser.Math.Linear(physics.speed, 0, Math.min(1, dt * 2.5));
+            const drag = CAR_IDLE_DRAG * dt;
+            physics.speed = Phaser.Math.Linear(physics.speed, 0, drag);
+        }
+
+        if (handBraking) {
+            const brakeForce = CAR_HAND_BRAKE * dt;
+            physics.speed = Phaser.Math.Linear(physics.speed, 0, Math.min(1, brakeForce / Math.max(1, Math.abs(physics.speed))));
         }
 
         physics.speed = clamp(physics.speed, CAR_MAX_REVERSE, CAR_MAX_FORWARD);
 
-        if (Math.abs(throttle) < 0.05 && Math.abs(physics.speed) > 0.01) {
-            const drag = CAR_BRAKE * dt * Math.sign(physics.speed);
-            physics.speed = Math.abs(drag) > Math.abs(physics.speed) ? 0 : physics.speed - drag;
-        }
-
-        const turnScale = clamp(Math.abs(physics.speed) / 220, 0.25, 1.7);
-        physics.angle += steer * 2.3 * turnScale * dt * (physics.speed >= 0 ? 1 : -1);
+        const normalizedSpeed = clamp(Math.abs(physics.speed) / CAR_MAX_FORWARD, 0, 1);
+        const steerStrength = (CAR_STEER_BASE + normalizedSpeed * CAR_STEER_SPEED_FACTOR) * (physics.speed >= 0 ? 1 : -1);
+        physics.angle += steer * steerStrength * dt;
 
         const nextX = clamp(state.x + Math.cos(physics.angle) * physics.speed * dt, 60, WORLD_SIZE - 60);
         const nextY = clamp(state.y + Math.sin(physics.angle) * physics.speed * dt, 60, WORLD_SIZE - 60);
@@ -1129,7 +1163,8 @@ export class WorldScene extends Phaser.Scene {
             state.x = nextX;
             state.y = nextY;
         } else {
-            physics.speed *= -0.12;
+            physics.speed *= -0.24;
+            this.playTone({ frequency: 110, slideTo: 75, duration: 0.06, type: "square", volume: 0.018 });
         }
 
         state.angle = physics.angle;
@@ -2012,9 +2047,8 @@ export class WorldScene extends Phaser.Scene {
         const style = MATERIAL_STYLE[material];
         const x = gridX * TILE_SIZE + TILE_SIZE / 2;
         const y = gridY * TILE_SIZE + TILE_SIZE / 2;
-        const visual = this.add.rectangle(x, y, TILE_SIZE - 8, TILE_SIZE - 8, style.fill, style.alpha || 0.96).setDepth(930 + y);
-        visual.setStrokeStyle(2, style.stroke, 1);
-        const collider = this.add.rectangle(x, y, TILE_SIZE - 10, TILE_SIZE - 10, 0x000000, 0);
+        const visual = this.add.rectangle(x, y, TILE_SIZE, TILE_SIZE, style.fill, style.alpha || 0.97).setDepth(930 + y);
+        const collider = this.add.rectangle(x, y, TILE_SIZE, TILE_SIZE, 0x000000, 0);
         this.physics.add.existing(collider, true);
         this.buildBlockColliders?.add(collider);
 
@@ -2088,7 +2122,7 @@ export class WorldScene extends Phaser.Scene {
             direction: baseState.direction,
             animState: baseState.animState,
             frame: baseState.frame,
-            name: "You",
+            name: this.localDisplayName,
             hasFlower: this.localHasFlower,
             inVehicle: seat ? `${seat.vehicleId}:${seat.role}` : ""
         };
@@ -2191,6 +2225,9 @@ export class WorldScene extends Phaser.Scene {
         }
         if (this.unsubBuildPatch) {
             this.unsubBuildPatch();
+        }
+        if (this.unsubConnect) {
+            this.unsubConnect();
         }
 
         if (this.chatForm && this.chatHandler) {

@@ -57,6 +57,9 @@ export function createSocketAdapter(socket) {
         },
         buildAction(data) {
             socket.emit("buildAction", data);
+        },
+        setProfile(data) {
+            socket.emit("setProfile", data);
         }
     };
 }
