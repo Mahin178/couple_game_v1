@@ -124,6 +124,19 @@ canvas {
     box-shadow: 0 8px 24px rgba(18, 20, 34, 0.22);
 }
 
+#loveStatus {
+    position: fixed;
+    right: 12px;
+    top: 12px;
+    background: rgba(20, 35, 52, 0.9);
+    border: 1px solid rgba(190, 226, 255, 0.55);
+    border-radius: 12px;
+    padding: 9px 12px;
+    font-size: 12px;
+    color: #d8f2ff;
+    font-weight: 700;
+}
+
 #loveMeter {
     margin-top: 6px;
     width: 100%;
@@ -210,32 +223,29 @@ canvas {
     position: fixed;
     right: 16px;
     bottom: calc(94px + env(safe-area-inset-bottom));
-    width: 210px;
-    height: 210px;
-    border-radius: 50%;
-    padding: 16px;
-    background:
-        radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.18), transparent 58%),
-        rgba(13, 26, 38, 0.66);
-    border: 1px solid rgba(190, 230, 255, 0.32);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+    width: 132px;
+    padding: 8px;
+    border-radius: 16px;
+    background: rgba(13, 26, 38, 0.52);
+    border: 1px solid rgba(190, 230, 255, 0.26);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.28);
     display: flex;
-    gap: 8px;
+    gap: 7px;
     pointer-events: auto;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-content: center;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: stretch;
 }
 
 .actionBtn {
     border: 1px solid var(--border);
-    border-radius: 50%;
+    border-radius: 12px;
     color: #fff;
-    width: 58px;
-    height: 58px;
-    padding: 0;
+    width: 100%;
+    height: 42px;
+    padding: 0 8px;
     font-weight: 700;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.1;
     display: none;
     touch-action: manipulation;
@@ -258,6 +268,7 @@ canvas {
 #btnEat { background: linear-gradient(140deg, #4d8b35, #84b93f); border-color: rgba(210, 250, 154, 0.64); }
 #btnBuildMode { background: linear-gradient(140deg, #9d4eb8, #bb67ce); border-color: rgba(235, 183, 255, 0.66); }
 #btnPlaceBlock { background: linear-gradient(140deg, #2f8c73, #49b89b); border-color: rgba(170, 251, 226, 0.64); }
+#btnEnter { background: linear-gradient(140deg, #4a67cf, #6f88df); border-color: rgba(190, 203, 255, 0.66); }
 #btnRemoveBlock { background: linear-gradient(140deg, #9a4b52, #c05d67); border-color: rgba(255, 184, 191, 0.65); }
 #btnCycleMaterial { background: linear-gradient(140deg, #8b6640, #bc9154); border-color: rgba(255, 224, 180, 0.64); }
 #btnCycleWeapon { background: linear-gradient(140deg, #5758aa, #7979d6); border-color: rgba(196, 202, 255, 0.66); }
@@ -534,20 +545,19 @@ canvas {
     #interactionPanel {
         right: 8px;
         bottom: calc(84px + env(safe-area-inset-bottom));
-        width: 196px;
-        height: 196px;
+        width: 122px;
         gap: 6px;
-        padding: 14px;
+        padding: 6px;
     }
 
     .actionBtn {
-        width: 54px;
-        height: 54px;
-        font-size: 10px;
+        width: 100%;
+        height: 38px;
+        font-size: 11px;
     }
 
     .mobileBuildBtn {
-        display: inline-flex;
+        display: none;
     }
 
     #buildInfo {
@@ -578,6 +588,13 @@ canvas {
         padding: 8px 10px;
     }
 
+    #loveStatus {
+        right: 8px;
+        top: 8px;
+        font-size: 11px;
+        padding: 8px 9px;
+    }
+
     #miniMapWrap {
         width: 102px;
         height: 102px;
@@ -598,23 +615,18 @@ canvas {
     }
 
     .mobileBuildBtn {
-        right: 132px;
-        bottom: calc(124px + env(safe-area-inset-bottom));
-        width: 64px;
-        height: 64px;
-        font-size: 11px;
+        display: none;
     }
 
     #interactionPanel {
-        width: 176px;
-        height: 176px;
-        padding: 12px;
+        width: 112px;
+        padding: 4px;
     }
 
     .actionBtn {
-        width: 48px;
-        height: 48px;
-        font-size: 9.5px;
+        width: 100%;
+        height: 34px;
+        font-size: 10px;
     }
 }
 

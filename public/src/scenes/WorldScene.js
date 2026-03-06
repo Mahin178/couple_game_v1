@@ -157,6 +157,7 @@ export class WorldScene extends Phaser.Scene {
         this.lastResourceCullAt = 0;
         this.lastBackpackText = "";
         this.lastUiHintKey = "";
+        this.currentEnterAction = "";
     }
 
     create() {
@@ -819,12 +820,19 @@ export class WorldScene extends Phaser.Scene {
         bind("drive", () => this.tryDrive());
         bind("sit", () => this.trySit());
         bind("exitCar", () => this.exitCar());
+        bind("enter", () => this.performEnterAction());
         bind("openGate", () => this.toggleGate());
         bind("collect", () => this.collectNearbyResource());
         bind("shoot", () => this.shootWeapon());
         bind("eat", () => this.eatFood());
         bind("buildMode", () => this.toggleBuildMode());
-        bind("placeBlock", () => this.tryPlaceBlock());
+        bind("placeBlock", () => {
+            if (this.isTouchDevice) {
+                this.performContextualBuildAction();
+                return;
+            }
+            this.tryPlaceBlock();
+        });
         bind("removeBlock", () => this.tryRemoveBlock());
         bind("cycleMaterial", () => this.cycleMaterial());
         bind("cycleWeapon", () => this.cycleWeapon());
@@ -2098,6 +2106,24 @@ export class WorldScene extends Phaser.Scene {
         }
     }
 
+    performEnterAction() {
+        if (this.currentEnterAction === "exit") {
+            this.exitCar();
+            return;
+        }
+        if (this.currentEnterAction === "gate") {
+            this.toggleGate();
+            return;
+        }
+        if (this.currentEnterAction === "drive") {
+            this.tryDrive();
+            return;
+        }
+        if (this.currentEnterAction === "sit") {
+            this.trySit();
+        }
+    }
+
     updateInteractionButtons() {
         if (this.isGameOver) {
             this.hud.showDrivePad(false);
@@ -2113,26 +2139,55 @@ export class WorldScene extends Phaser.Scene {
         const freeCar = this.getNearestVehicle(120, (v) => !v.driverId);
         const rideCar = this.getNearestVehicle(120, (v) => v.driverId && !v.passengerId && v.driverId !== this.socketAdapter.id);
 
-        this.hud.showAction("drive", Boolean(freeCar) && !seat);
-        this.hud.showAction("sit", Boolean(rideCar) && !seat);
-        this.hud.showAction("exitCar", Boolean(seat));
-
-        this.hud.showAction("openGate", Boolean(this.nearGate) && !seat);
-        this.hud.showAction("collect", Boolean(this.getNearestResource(86)) && !seat);
-        this.hud.showAction("shoot", !seat);
-        this.hud.showAction("eat", this.getFoodCount() > 0);
-
         const localPos = this.getPlayerWorldPosition(this.socketAdapter.id);
         const inSafe = localPos ? this.isInsideSafeZone(localPos.x, localPos.y) : true;
         const canBuild = !seat && inSafe;
 
-        this.hud.showAction("buildMode", canBuild);
-        this.hud.showAction("placeBlock", canBuild && this.isBuildMode && !this.isTouchDevice);
+        this.hud.showAction("drive", Boolean(freeCar) && !seat && !this.isTouchDevice);
+        this.hud.showAction("sit", Boolean(rideCar) && !seat && !this.isTouchDevice);
+        this.hud.showAction("exitCar", Boolean(seat) && !this.isTouchDevice);
+        this.hud.showAction("openGate", Boolean(this.nearGate) && !seat && !this.isTouchDevice);
+        this.hud.showAction("shoot", !seat && !this.isTouchDevice);
+        this.hud.showAction("eat", this.getFoodCount() > 0 && !this.isTouchDevice);
+        this.hud.showAction("buildMode", canBuild && !this.isTouchDevice);
         this.hud.showAction("removeBlock", canBuild && this.isBuildMode && !this.isTouchDevice);
-        this.hud.showAction("cycleMaterial", canBuild && this.isBuildMode);
-        this.hud.showAction("cycleWeapon", !seat);
-        this.hud.showMobileBuildAction(canBuild && this.isBuildMode && this.isTouchDevice);
-        this.hud.setMobileBuildLabel(this.buildHoverAction === "remove" ? "Remove" : "Place");
+        this.hud.showAction("cycleMaterial", canBuild && this.isBuildMode && !this.isTouchDevice);
+        this.hud.showAction("cycleWeapon", !seat && !this.isTouchDevice);
+
+        if (this.isTouchDevice) {
+            this.currentEnterAction = "";
+            let enterLabel = "";
+            if (seat) {
+                this.currentEnterAction = "exit";
+                enterLabel = "Exit";
+            } else if (this.nearGate) {
+                this.currentEnterAction = "gate";
+                enterLabel = this.gateOpen ? "Close" : "Enter";
+            } else if (freeCar) {
+                this.currentEnterAction = "drive";
+                enterLabel = "Drive";
+            } else if (rideCar) {
+                this.currentEnterAction = "sit";
+                enterLabel = "Sit";
+            }
+
+            this.hud.showAction("enter", Boolean(this.currentEnterAction));
+            if (this.hud.buttons.enter) {
+                this.hud.buttons.enter.textContent = enterLabel || "Enter";
+            }
+
+            this.hud.showAction("collect", Boolean(this.getNearestResource(86)) && !seat);
+            this.hud.showAction("placeBlock", canBuild);
+            if (this.hud.buttons.placeBlock) {
+                this.hud.buttons.placeBlock.textContent = this.isBuildMode && this.buildHoverAction === "remove" ? "Remove" : "Place";
+            }
+            this.hud.showMobileBuildAction(false);
+        } else {
+            this.hud.showAction("enter", false);
+            this.hud.showAction("collect", Boolean(this.getNearestResource(86)) && !seat);
+            this.hud.showAction("placeBlock", canBuild && this.isBuildMode);
+            this.hud.showMobileBuildAction(false);
+        }
 
         if (coarse && this.getDrivingVehicleId() && this.lastUiHintKey !== "drive_hint") {
             this.lastUiHintKey = "drive_hint";

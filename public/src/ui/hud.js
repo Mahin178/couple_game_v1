@@ -3,6 +3,7 @@ export function createHudControls() {
     const chatInput = document.getElementById("chatInput");
     const emojiButtons = Array.from(document.querySelectorAll(".emojiBtn"));
     const loveFill = document.getElementById("loveFill");
+    const loveStatus = document.getElementById("loveStatus");
     const authorTag = document.getElementById("authorTag");
     const chatToggle = document.getElementById("btnChatToggle");
     const materialCounts = {
@@ -30,6 +31,7 @@ export function createHudControls() {
         eat: document.getElementById("btnEat"),
         buildMode: document.getElementById("btnBuildMode"),
         placeBlock: document.getElementById("btnPlaceBlock"),
+        enter: document.getElementById("btnEnter"),
         removeBlock: document.getElementById("btnRemoveBlock"),
         cycleMaterial: document.getElementById("btnCycleMaterial"),
         cycleWeapon: document.getElementById("btnCycleWeapon")
@@ -68,6 +70,9 @@ export function createHudControls() {
         setLove(value) {
             const clamped = Math.max(0, Math.min(100, value));
             loveFill.style.width = `${clamped}%`;
+            if (loveStatus) {
+                loveStatus.textContent = `Love Status: ${Math.round(clamped)}%`;
+            }
         },
         setMission(text) {
             return text;
