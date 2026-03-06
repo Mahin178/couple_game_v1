@@ -41,6 +41,11 @@ const SAFE_CENTER = WORLD_SIZE / 2;
 const SAFE_MIN = SAFE_CENTER - SAFE_ZONE_HALF;
 const SAFE_MAX = SAFE_CENTER + SAFE_ZONE_HALF;
 const GATE_WIDTH = 220;
+const MAP_REFRESH_MS = 180;
+const FULL_MAP_REFRESH_MS = 260;
+const HUD_REFRESH_MS = 240;
+const AIM_REFRESH_MS = 80;
+const AI_REFRESH_MS = 55;
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -140,6 +145,13 @@ export class WorldScene extends Phaser.Scene {
 
         this.mapUi = null;
         this.isFullMapOpen = false;
+        this.lastMapDrawAt = 0;
+        this.lastFullMapDrawAt = 0;
+        this.lastHudRefreshAt = 0;
+        this.lastAimUpdateAt = 0;
+        this.lastAiTickAt = 0;
+        this.lastBackpackText = "";
+        this.lastUiHintKey = "";
     }
 
     create() {
@@ -411,16 +423,6 @@ export class WorldScene extends Phaser.Scene {
             const shadow = this.add.ellipse(x, y + 12, 26, 10, 0x000000, 0.2).setDepth(840);
             const core = this.add.circle(x, y, type === "food" ? 11 : 13, colorMap[resource] || 0xffffff, 0.95).setDepth(845);
             core.setStrokeStyle(2, 0xffffff, 0.28);
-            const label = this.add
-                .text(x, y - 19, resource[0].toUpperCase(), {
-                    fontFamily: '"Trebuchet MS", sans-serif',
-                    fontSize: "12px",
-                    color: "#ffffff",
-                    stroke: "#1d1b1a",
-                    strokeThickness: 2
-                })
-                .setOrigin(0.5)
-                .setDepth(846);
 
             const node = {
                 id: `${resource}-${x.toFixed(0)}-${y.toFixed(0)}-${Math.random().toString(16).slice(2, 6)}`,
@@ -432,7 +434,7 @@ export class WorldScene extends Phaser.Scene {
                 respawnAt: 0,
                 shadow,
                 core,
-                label
+                label: null
             };
 
             this.resourceNodes.push(node);
@@ -446,17 +448,19 @@ export class WorldScene extends Phaser.Scene {
             }
         };
 
-        spawnCluster("apple", "food", 70);
-        spawnCluster("strawberry", "food", 60);
-        spawnCluster("blueberry", "food", 60);
-        spawnCluster("brick", "material", 48);
-        spawnCluster("wood", "material", 56);
-        spawnCluster("glass", "material", 38);
-        spawnCluster("steel", "material", 36);
+        const mobileScale = this.isTouchDevice ? 0.62 : 1;
+        spawnCluster("apple", "food", Math.floor(44 * mobileScale));
+        spawnCluster("strawberry", "food", Math.floor(36 * mobileScale));
+        spawnCluster("blueberry", "food", Math.floor(36 * mobileScale));
+        spawnCluster("brick", "material", Math.floor(30 * mobileScale));
+        spawnCluster("wood", "material", Math.floor(36 * mobileScale));
+        spawnCluster("glass", "material", Math.floor(24 * mobileScale));
+        spawnCluster("steel", "material", Math.floor(22 * mobileScale));
     }
 
     createCows() {
-        for (let i = 0; i < 24; i += 1) {
+        const cowCount = this.isTouchDevice ? 10 : 14;
+        for (let i = 0; i < cowCount; i += 1) {
             const point = this.randomOutsidePoint();
             const cow = {
                 x: point.x,
@@ -481,7 +485,8 @@ export class WorldScene extends Phaser.Scene {
     }
 
     createZombies() {
-        for (let i = 0; i < 90; i += 1) {
+        const zombieCount = this.isTouchDevice ? 34 : 46;
+        for (let i = 0; i < zombieCount; i += 1) {
             const point = this.randomOutsidePoint();
             const zombie = {
                 x: point.x,
@@ -1149,9 +1154,16 @@ export class WorldScene extends Phaser.Scene {
         this.updateVehicleVisual();
         this.updateGateHint();
         this.updateResourceRespawns(time);
-        this.updateCows(dt, time);
-        this.updateZombies(dt, time);
-        this.updateAimTarget(time);
+        if (time - this.lastAiTickAt > AI_REFRESH_MS) {
+            const aiDt = Math.min(0.09, (time - this.lastAiTickAt) / 1000 || dt);
+            this.lastAiTickAt = time;
+            this.updateCows(aiDt, time);
+            this.updateZombies(aiDt, time);
+        }
+        if (time - this.lastAimUpdateAt > AIM_REFRESH_MS) {
+            this.lastAimUpdateAt = time;
+            this.updateAimTarget(time);
+        }
         this.updateBuildPreview();
         this.updateInteractionButtons();
         this.updateCameraTarget();
@@ -1159,9 +1171,19 @@ export class WorldScene extends Phaser.Scene {
         this.updatePlayerIndicator(time);
         this.updateDayNight(time);
         this.updateHungerAndStatus(time);
-        this.updateBondMeter();
-        this.renderMiniMap();
-        this.renderFullMap();
+        if (time - this.lastHudRefreshAt > HUD_REFRESH_MS) {
+            this.lastHudRefreshAt = time;
+            this.updateBondMeter();
+            this.updateBackpackInfo();
+        }
+        if (time - this.lastMapDrawAt > MAP_REFRESH_MS) {
+            this.lastMapDrawAt = time;
+            this.renderMiniMap();
+        }
+        if (this.isFullMapOpen && time - this.lastFullMapDrawAt > FULL_MAP_REFRESH_MS) {
+            this.lastFullMapDrawAt = time;
+            this.renderFullMap();
+        }
 
         if (!this.isGameOver) {
             this.sendMoveIfNeeded(time);
@@ -1772,16 +1794,6 @@ export class WorldScene extends Phaser.Scene {
         const shadow = this.add.ellipse(drop.x, drop.y + 12, 26, 10, 0x000000, 0.2).setDepth(840);
         const core = this.add.circle(drop.x, drop.y, 11, 0xb7524f, 0.95).setDepth(845);
         core.setStrokeStyle(2, 0xffffff, 0.28);
-        const label = this.add
-            .text(drop.x, drop.y - 19, "M", {
-                fontFamily: '"Trebuchet MS", sans-serif',
-                fontSize: "12px",
-                color: "#ffffff",
-                stroke: "#1d1b1a",
-                strokeThickness: 2
-            })
-            .setOrigin(0.5)
-            .setDepth(846);
 
         this.resourceNodes.push({
             id: `meat-drop-${drop.x}-${drop.y}-${Math.random().toString(16).slice(2, 6)}`,
@@ -1793,7 +1805,7 @@ export class WorldScene extends Phaser.Scene {
             respawnAt: 0,
             shadow,
             core,
-            label
+            label: null
         });
 
         this.setMission("Cow hunted. Meat dropped. Collect it and return home.");
@@ -1808,7 +1820,7 @@ export class WorldScene extends Phaser.Scene {
             node.active = true;
             node.core.setVisible(true);
             node.shadow.setVisible(true);
-            node.label.setVisible(true);
+            node.label?.setVisible(true);
         }
     }
 
@@ -1852,7 +1864,7 @@ export class WorldScene extends Phaser.Scene {
         node.respawnAt = this.time.now + Phaser.Math.Between(12000, 22000);
         node.core.setVisible(false);
         node.shadow.setVisible(false);
-        node.label.setVisible(false);
+        node.label?.setVisible(false);
 
         this.playTone({ frequency: 520, slideTo: 350, duration: 0.07, type: "triangle", volume: 0.046 });
         this.setMission(`Collected ${gain} ${node.resource}. Bring supplies back to the safe zone.`);
@@ -1904,7 +1916,6 @@ export class WorldScene extends Phaser.Scene {
             }
         }
 
-        this.updateBackpackInfo();
     }
 
     updateBackpackInfo() {
@@ -1914,6 +1925,10 @@ export class WorldScene extends Phaser.Scene {
             `brick ${this.inventory.brick}, wood ${this.inventory.wood}, glass ${this.inventory.glass}, steel ${this.inventory.steel} | ` +
             `Hunger ${Math.round(this.hunger)} | Bites ${this.bitesTaken}/2`;
 
+        if (this.lastBackpackText === backpackText) {
+            return;
+        }
+        this.lastBackpackText = backpackText;
         this.hud.setBackpack(backpackText);
         this.hud.setMaterialCounts(this.inventory);
     }
@@ -2044,8 +2059,12 @@ export class WorldScene extends Phaser.Scene {
         this.hud.showMobileBuildAction(canBuild && this.isBuildMode && this.isTouchDevice);
         this.hud.setMobileBuildLabel(this.buildHoverAction === "remove" ? "Remove" : "Place");
 
-        if (coarse && this.getDrivingVehicleId()) {
+        if (coarse && this.getDrivingVehicleId() && this.lastUiHintKey !== "drive_hint") {
+            this.lastUiHintKey = "drive_hint";
             this.setMission("Use joystick + arrows to drive.");
+        }
+        if (!this.getDrivingVehicleId() && this.lastUiHintKey === "drive_hint") {
+            this.lastUiHintKey = "";
         }
 
         this.updateBuildInfoText();
