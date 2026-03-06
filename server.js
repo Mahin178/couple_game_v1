@@ -3,9 +3,12 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const MAX_PLAYERS = 4;
-const WORLD_SIZE = 4608;
+const WORLD_SIZE = 8192;
 const TILE_SIZE = 64;
 const MATERIALS = new Set(["brick", "wood", "glass", "steel"]);
+const SAFE_ZONE_SIZE = 2048;
+const SAFE_ZONE_MIN = WORLD_SIZE / 2 - SAFE_ZONE_SIZE / 2;
+const SAFE_ZONE_CENTER = WORLD_SIZE / 2;
 
 const app = express();
 const server = http.createServer(app);
@@ -17,8 +20,8 @@ const players = {};
 const vehicles = {
     car_red: {
         id: "car_red",
-        x: 1400,
-        y: 1450,
+        x: SAFE_ZONE_CENTER - 180,
+        y: SAFE_ZONE_CENTER + 90,
         angle: 0,
         speed: 0,
         driverId: null,
@@ -26,8 +29,8 @@ const vehicles = {
     },
     car_pink: {
         id: "car_pink",
-        x: 1530,
-        y: 1520,
+        x: SAFE_ZONE_CENTER + 180,
+        y: SAFE_ZONE_CENTER + 90,
         angle: 0,
         speed: 0,
         driverId: null,
@@ -85,8 +88,8 @@ io.on("connection", (socket) => {
     }
 
     players[socket.id] = {
-        x: 500,
-        y: 500,
+        x: SAFE_ZONE_MIN + 220,
+        y: SAFE_ZONE_MIN + 220,
         frame: 0,
         direction: "down",
         animState: "idle",

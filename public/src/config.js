@@ -1,4 +1,4 @@
-export const WORLD_SIZE = 4608;
+export const WORLD_SIZE = 8192;
 export const TILE_SIZE = 64;
 
 export const gameConfig = {

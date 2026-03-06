@@ -10,7 +10,11 @@ export function createHudControls() {
         brick: document.getElementById("matBrickCount"),
         wood: document.getElementById("matWoodCount"),
         glass: document.getElementById("matGlassCount"),
-        steel: document.getElementById("matSteelCount")
+        steel: document.getElementById("matSteelCount"),
+        apple: document.getElementById("foodAppleCount"),
+        strawberry: document.getElementById("foodStrawberryCount"),
+        blueberry: document.getElementById("foodBlueberryCount"),
+        meat: document.getElementById("foodMeatCount")
     };
     const miniMapWrap = document.getElementById("miniMapWrap");
     const miniMapCanvas = document.getElementById("miniMapCanvas");
@@ -21,16 +25,17 @@ export function createHudControls() {
         drive: document.getElementById("btnDrive"),
         sit: document.getElementById("btnSit"),
         exitCar: document.getElementById("btnExitCar"),
-        openDoor: document.getElementById("btnOpenDoor"),
-        pickFlower: document.getElementById("btnPickFlower"),
-        giveFlower: document.getElementById("btnGiveFlower"),
-        acceptFlower: document.getElementById("btnAcceptFlower"),
+        openGate: document.getElementById("btnOpenGate"),
+        collect: document.getElementById("btnCollect"),
+        shoot: document.getElementById("btnShoot"),
+        eat: document.getElementById("btnEat"),
         buildMode: document.getElementById("btnBuildMode"),
-        grabMaterial: document.getElementById("btnGrabMaterial"),
         placeBlock: document.getElementById("btnPlaceBlock"),
         removeBlock: document.getElementById("btnRemoveBlock"),
-        cycleMaterial: document.getElementById("btnCycleMaterial")
+        cycleMaterial: document.getElementById("btnCycleMaterial"),
+        cycleWeapon: document.getElementById("btnCycleWeapon")
     };
+    const backpackInfo = document.getElementById("backpackInfo");
     const mobileBuildAction = document.getElementById("btnMobileBuildAction");
     const buildInfo = document.getElementById("buildInfo");
     const drivePad = {
@@ -61,6 +66,7 @@ export function createHudControls() {
         restartButton,
         buildInfo,
         mobileBuildAction,
+        backpackInfo,
         setLove(value) {
             const clamped = Math.max(0, Math.min(100, value));
             loveFill.style.width = `${clamped}%`;
@@ -85,6 +91,23 @@ export function createHudControls() {
             }
             if (materialCounts.steel) {
                 materialCounts.steel.textContent = String(counts.steel ?? 0);
+            }
+            if (materialCounts.apple) {
+                materialCounts.apple.textContent = String(counts.apple ?? 0);
+            }
+            if (materialCounts.strawberry) {
+                materialCounts.strawberry.textContent = String(counts.strawberry ?? 0);
+            }
+            if (materialCounts.blueberry) {
+                materialCounts.blueberry.textContent = String(counts.blueberry ?? 0);
+            }
+            if (materialCounts.meat) {
+                materialCounts.meat.textContent = String(counts.meat ?? 0);
+            }
+        },
+        setBackpack(text) {
+            if (backpackInfo) {
+                backpackInfo.textContent = text;
             }
         },
         showAction(name, show) {

@@ -207,6 +207,20 @@ canvas {
     color: #f8f7ef;
 }
 
+#backpackInfo {
+    position: fixed;
+    left: 12px;
+    top: 122px;
+    background: rgba(12, 19, 22, 0.78);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px;
+    pointer-events: none;
+    font-size: 13px;
+    max-width: min(520px, calc(100vw - 24px));
+    color: #f8f7ef;
+}
+
 #mobileMaterialPanel {
     position: fixed;
     left: 10px;
@@ -499,6 +513,10 @@ canvas {
     }
 
     #buildInfo {
+        display: none;
+    }
+
+    #backpackInfo {
         display: none;
     }
 

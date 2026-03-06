@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>❤️❤️ Virtual Love</title>
+    <title>Couple Survival</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
     <div id="game-root"></div>
-    <div id="authorTag">Ta ❤️ Nu </div>
+    <div id="authorTag">Couple Survival</div>
 
     <div id="ui-overlay">
         <div id="topBar">
-            <div id="missionBox">❤️Don't afraid I am always with you Jan❤️</div>
+            <div id="missionBox">Stay in the safe zone, prepare, then survive together outside.</div>
             <div id="loveMeterWrap">
-                <span>Love</span>
+                <span>Bond</span>
                 <div id="loveMeter"><div id="loveFill"></div></div>
             </div>
         </div>
@@ -32,15 +32,15 @@
             <button id="btnDrive" class="actionBtn">Drive</button>
             <button id="btnSit" class="actionBtn">Sit</button>
             <button id="btnExitCar" class="actionBtn">Exit Car</button>
-            <button id="btnOpenDoor" class="actionBtn">Open Door</button>
-            <button id="btnPickFlower" class="actionBtn">Pick Flower</button>
-            <button id="btnGiveFlower" class="actionBtn">Give Flower</button>
-            <button id="btnAcceptFlower" class="actionBtn">Accept Flower</button>
+            <button id="btnOpenGate" class="actionBtn">Open Gate</button>
+            <button id="btnCollect" class="actionBtn">Collect</button>
+            <button id="btnShoot" class="actionBtn">Shoot</button>
+            <button id="btnEat" class="actionBtn">Eat</button>
             <button id="btnBuildMode" class="actionBtn">Build Mode</button>
-            <button id="btnGrabMaterial" class="actionBtn">Grab Material</button>
             <button id="btnPlaceBlock" class="actionBtn">Place Block</button>
             <button id="btnRemoveBlock" class="actionBtn">Remove Block</button>
             <button id="btnCycleMaterial" class="actionBtn">Material: Brick</button>
+            <button id="btnCycleWeapon" class="actionBtn">Weapon: Pistol</button>
         </div>
 
         <div id="buildInfo" aria-live="polite">Build: OFF</div>
@@ -49,7 +49,12 @@
             <div><span>wood:</span> <strong id="matWoodCount">0</strong></div>
             <div><span>glass:</span> <strong id="matGlassCount">0</strong></div>
             <div><span>steel:</span> <strong id="matSteelCount">0</strong></div>
+            <div><span>apple:</span> <strong id="foodAppleCount">0</strong></div>
+            <div><span>strawberry:</span> <strong id="foodStrawberryCount">0</strong></div>
+            <div><span>blueberry:</span> <strong id="foodBlueberryCount">0</strong></div>
+            <div><span>meat:</span> <strong id="foodMeatCount">0</strong></div>
         </div>
+        <div id="backpackInfo" aria-live="polite">Backpack: empty</div>
 
         <div id="emojiBar">
             <button class="emojiBtn" data-emoji="❤️">❤️</button>
@@ -81,7 +86,7 @@
 
         <div id="gameOverOverlay" aria-hidden="true">
             <div id="gameOverCard">
-                <h2>Your ammu caught you, now get ready for 👊 👊  </h2>
+                <h2>You did not survive. Restart and protect each other.</h2>
                 <button id="btnRestartGame" type="button">Restart</button>
             </div>
         </div>
