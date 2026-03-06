@@ -308,13 +308,10 @@ export class WorldScene extends Phaser.Scene {
 
         this.setGateOpen(false, false);
 
-        this.homeCore = this.add
-            .rectangle(SAFE_CENTER, SAFE_CENTER, 460, 320, 0x5c463a, 0.88)
-            .setDepth(880)
-            .setStrokeStyle(3, 0xdfbe9b, 0.8);
-        this.add.rectangle(SAFE_CENTER, SAFE_CENTER - 110, 240, 66, 0x786357, 1).setDepth(881);
-        this.add.rectangle(SAFE_CENTER, SAFE_CENTER + 132, 72, 86, 0x3c2a1e, 1).setDepth(882);
-        this.add.rectangle(SAFE_CENTER, SAFE_CENTER - 2, 220, 118, 0xf2ddbd, 0.48).setDepth(879);
+        this.safePad = this.add
+            .rectangle(SAFE_MIN + 300, SAFE_CENTER + 120, 320, 120, 0x2f3f4f, 0.5)
+            .setDepth(875)
+            .setStrokeStyle(2, 0x9fb8cf, 0.28);
     }
 
     createWorldDetails() {
@@ -331,7 +328,7 @@ export class WorldScene extends Phaser.Scene {
             decor.fillCircle(x + 10 * scale, y + 6 * scale, 10 * scale);
         };
 
-        const treeCount = this.isTouchDevice ? 140 : 300;
+        const treeCount = this.isTouchDevice ? 90 : 220;
         for (let i = 0; i < treeCount; i += 1) {
             const x = Phaser.Math.Between(80, WORLD_SIZE - 80);
             const y = Phaser.Math.Between(80, WORLD_SIZE - 80);
@@ -360,8 +357,8 @@ export class WorldScene extends Phaser.Scene {
 
     createVehicles() {
         const start = {
-            car_red: { x: SAFE_CENTER - 180, y: SAFE_CENTER + 90 },
-            car_pink: { x: SAFE_CENTER + 180, y: SAFE_CENTER + 90 }
+            car_red: { x: SAFE_MIN + 240, y: SAFE_CENTER + 118 },
+            car_pink: { x: SAFE_MIN + 360, y: SAFE_CENTER + 118 }
         };
 
         for (const config of CAR_CONFIG) {
@@ -498,7 +495,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     createZombies() {
-        const zombieCount = this.isTouchDevice ? 22 : 46;
+        const zombieCount = this.isTouchDevice ? 28 : 52;
         for (let i = 0; i < zombieCount; i += 1) {
             const point = this.randomOutsidePoint();
             const zombie = {
@@ -515,8 +512,8 @@ export class WorldScene extends Phaser.Scene {
             zombie.shadow = this.add.ellipse(zombie.x, zombie.y + 10, 24, 8, 0x000000, 0.25).setDepth(920);
             zombie.body = this.add.rectangle(zombie.x, zombie.y, 20, 26, 0x406148).setDepth(922);
             zombie.head = this.add.circle(zombie.x, zombie.y - 18, 8, 0xb6dfb1).setDepth(923);
-            zombie.eyeL = this.add.circle(zombie.x - 2, zombie.y - 18, 1.5, 0x111111).setDepth(924);
-            zombie.eyeR = this.add.circle(zombie.x + 2, zombie.y - 18, 1.5, 0x111111).setDepth(924);
+            zombie.eyeL = this.add.circle(zombie.x - 2, zombie.y - 18, 1.5, 0xc91f35).setDepth(924);
+            zombie.eyeR = this.add.circle(zombie.x + 2, zombie.y - 18, 1.5, 0xc91f35).setDepth(924);
 
             this.zombies.push(zombie);
         }
@@ -692,7 +689,7 @@ export class WorldScene extends Phaser.Scene {
         }
 
         this.cameras.main.setZoom(this.isTouchDevice ? 1.14 : 1.24);
-        this.cameras.main.startFollow(this.localPlayer.sprite, true, 1, 1);
+        this.cameras.main.startFollow(this.localPlayer.sprite, true, 0.16, 0.16);
         this.cameras.main.followOffset.set(0, 0);
     }
 
@@ -1268,6 +1265,10 @@ export class WorldScene extends Phaser.Scene {
         const blend = 1 - Math.exp(-lerpRate * dt);
         body.velocity.x = Phaser.Math.Linear(body.velocity.x, targetVx, blend);
         body.velocity.y = Phaser.Math.Linear(body.velocity.y, targetVy, blend);
+        if (moving && body.velocity.lengthSq() < 400) {
+            body.velocity.x = Phaser.Math.Linear(body.velocity.x, targetVx, 0.58);
+            body.velocity.y = Phaser.Math.Linear(body.velocity.y, targetVy, 0.58);
+        }
         if (Math.abs(body.velocity.x) < 2) {
             body.velocity.x = 0;
         }
@@ -1589,6 +1590,8 @@ export class WorldScene extends Phaser.Scene {
                     const p = this.randomOutsidePoint();
                     zombie.x = p.x;
                     zombie.y = p.y;
+                    zombie.dirX = Phaser.Math.FloatBetween(-1, 1);
+                    zombie.dirY = Phaser.Math.FloatBetween(-1, 1);
                     zombie.alive = true;
                     zombie.shadow.setVisible(true);
                     zombie.body.setVisible(true);
@@ -1667,11 +1670,15 @@ export class WorldScene extends Phaser.Scene {
                 continue;
             }
 
+            const bob = Math.sin((time + zombie.x * 0.1 + zombie.y * 0.06) / 120) * 1.4;
             zombie.shadow.setPosition(zombie.x, zombie.y + 10);
-            zombie.body.setPosition(zombie.x, zombie.y);
-            zombie.head.setPosition(zombie.x, zombie.y - 18);
-            zombie.eyeL.setPosition(zombie.x - 2, zombie.y - 18);
-            zombie.eyeR.setPosition(zombie.x + 2, zombie.y - 18);
+            zombie.body.setPosition(zombie.x, zombie.y + bob);
+            zombie.head.setPosition(zombie.x, zombie.y - 18 + bob);
+            zombie.eyeL.setPosition(zombie.x - 2, zombie.y - 18 + bob);
+            zombie.eyeR.setPosition(zombie.x + 2, zombie.y - 18 + bob);
+            const eyePulse = 0.65 + 0.35 * Math.sin((time + zombie.x) / 110);
+            zombie.eyeL.setAlpha(eyePulse);
+            zombie.eyeR.setAlpha(eyePulse);
 
             if (!this.isGameOver && localPos && !this.isInsideSafeZone(localPos.x, localPos.y, 8)) {
                 const dLocal = Phaser.Math.Distance.Between(zombie.x, zombie.y, localPos.x, localPos.y);
@@ -1859,7 +1866,7 @@ export class WorldScene extends Phaser.Scene {
         }
 
         zombie.alive = false;
-        zombie.respawnAt = this.time.now + Phaser.Math.Between(6000, 10000);
+        zombie.respawnAt = this.time.now + Phaser.Math.Between(700, 1400);
         zombie.shadow.setVisible(false);
         zombie.body.setVisible(false);
         zombie.head.setVisible(false);
@@ -2454,14 +2461,6 @@ export class WorldScene extends Phaser.Scene {
             return true;
         }
 
-        const hx = SAFE_CENTER - 230;
-        const hy = SAFE_CENTER - 160;
-        const hw = 460;
-        const hh = 320;
-        if (x + TILE_SIZE > hx && x < hx + hw && y + TILE_SIZE > hy && y < hy + hh) {
-            return true;
-        }
-
         return false;
     }
 
@@ -2786,7 +2785,7 @@ export class WorldScene extends Phaser.Scene {
         const target = followVehicleId ? this.vehicleSprites[followVehicleId]?.container : this.localPlayer.sprite;
 
         if (target && this.cameras.main._follow !== target) {
-            this.cameras.main.startFollow(target, true, 1, 1);
+            this.cameras.main.startFollow(target, true, 0.16, 0.16);
             this.cameras.main.followOffset.set(0, 0);
         }
     }
@@ -2825,17 +2824,29 @@ export class WorldScene extends Phaser.Scene {
         this.dayNight.setScrollFactor(0);
         this.dayNight.setBlendMode(Phaser.BlendModes.MULTIPLY);
         this.dayNight.setDepth(5000);
+
+        this.outsideFear = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x2b0612, 0);
+        this.outsideFear.setOrigin(0, 0);
+        this.outsideFear.setScrollFactor(0);
+        this.outsideFear.setBlendMode(Phaser.BlendModes.MULTIPLY);
+        this.outsideFear.setDepth(5001);
     }
 
     updateDayNight(time) {
         const cycle = (Math.sin(time / 14000) + 1) / 2;
+        const localPos = this.getPlayerWorldPosition(this.socketAdapter.id);
+        const inSafe = localPos ? this.isInsideSafeZone(localPos.x, localPos.y, 4) : true;
+        const fearPulse = 0.65 + Math.sin(time / 220) * 0.35;
+        const fearAlpha = inSafe ? 0 : (0.09 + fearPulse * 0.1);
         this.atmosphereTop?.setAlpha(0.06 + cycle * 0.06);
         this.atmosphereBottom?.setAlpha(0.08 + cycle * 0.09);
         this.dayNight.setAlpha(0.06 + cycle * 0.22);
+        this.outsideFear?.setAlpha(fearAlpha);
         if (this.dayNight.width !== this.scale.width || this.dayNight.height !== this.scale.height) {
             this.atmosphereTop?.setSize(this.scale.width, this.scale.height);
             this.atmosphereBottom?.setSize(this.scale.width, this.scale.height);
             this.dayNight.setSize(this.scale.width, this.scale.height);
+            this.outsideFear?.setSize(this.scale.width, this.scale.height);
         }
     }
 
@@ -2956,6 +2967,7 @@ export class WorldScene extends Phaser.Scene {
         this.shotLine?.destroy();
         this.atmosphereTop?.destroy();
         this.atmosphereBottom?.destroy();
+        this.outsideFear?.destroy();
 
         this.hud.showDrivePad(false);
         this.hud.showMobileBuildAction(false);
