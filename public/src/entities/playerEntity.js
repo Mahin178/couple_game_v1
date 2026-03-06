@@ -14,31 +14,38 @@ export class PlayerEntity {
         this.sprite.setOffset(9, 22);
         this.sprite.setCollideWorldBounds(true);
         this.sprite.setDepth(1000 + y);
+        const isTouch = window.matchMedia("(pointer: coarse)").matches;
+        const textResolution = Math.max(1.5, Math.min(3, window.devicePixelRatio || 1.5));
 
         this.nameText = scene.add
             .text(x, y - 26, this.name, {
-                fontSize: "12px",
+                fontFamily: "\"Trebuchet MS\", \"Verdana\", sans-serif",
+                fontSize: isTouch ? "17px" : "13px",
                 color: "#ffffff",
-                backgroundColor: "rgba(0,0,0,0.5)",
-                padding: { x: 4, y: 2 }
+                stroke: "#1a1a25",
+                strokeThickness: isTouch ? 4 : 3,
+                backgroundColor: "rgba(0,0,0,0.56)",
+                padding: { x: isTouch ? 6 : 4, y: isTouch ? 3 : 2 }
             })
             .setOrigin(0.5)
             .setDepth(2000);
+        this.nameText.setResolution(textResolution);
 
         this.bubble = scene.add
             .text(x, y - 44, "", {
                 fontFamily: "\"Trebuchet MS\", \"Verdana\", sans-serif",
-                fontSize: "13px",
+                fontSize: isTouch ? "17px" : "13px",
                 color: "#fff",
                 backgroundColor: "rgba(31, 19, 28, 0.82)",
                 stroke: "#f6b8d6",
-                strokeThickness: 1,
-                padding: { x: 8, y: 5 },
-                wordWrap: { width: 170 }
+                strokeThickness: isTouch ? 2 : 1,
+                padding: { x: isTouch ? 10 : 8, y: isTouch ? 6 : 5 },
+                wordWrap: { width: isTouch ? 240 : 170 }
             })
             .setOrigin(0.5)
             .setAlpha(0)
             .setDepth(2000);
+        this.bubble.setResolution(textResolution);
 
         this.heldFlowerPetal = scene.add.circle(x + 10, y - 8, 4, 0xee3e79).setDepth(2004).setVisible(false);
         this.heldFlowerStem = scene.add.rectangle(x + 10, y - 2, 2, 8, 0x2f8a52).setDepth(2003).setVisible(false);

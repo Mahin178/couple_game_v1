@@ -27,15 +27,6 @@ const CAR_CONFIG = [
     { id: "car_pink", body: 0xef7db4, roof: 0xffecf4 }
 ];
 
-function chooseColorOffset(id) {
-    let hash = 0;
-    for (let i = 0; i < id.length; i += 1) {
-        hash = (hash << 5) - hash + id.charCodeAt(i);
-        hash |= 0;
-    }
-    return Math.abs(hash) % 2 === 0 ? 0 : 12;
-}
-
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
@@ -626,7 +617,8 @@ export class WorldScene extends Phaser.Scene {
 
     createLocalPlayer() {
         const spawn = this.scene.settings.data?.spawn || { x: 500, y: 500 };
-        this.localPlayer = new PlayerEntity(this, spawn.x, spawn.y, "player", 0, "local", this.localDisplayName, true);
+        const frameOffset = this.getFrameOffsetForName(this.localDisplayName);
+        this.localPlayer = new PlayerEntity(this, spawn.x, spawn.y, "player", frameOffset, "local", this.localDisplayName, true);
         this.physics.add.collider(this.localPlayer.sprite, this.blockLayer);
         this.physics.add.collider(this.localPlayer.sprite, this.interiorWalls);
         if (this.buildBlockColliders) {
@@ -639,6 +631,11 @@ export class WorldScene extends Phaser.Scene {
     createPlayerIndicator() {
         this.playerIndicator = this.add.triangle(0, 0, 0, 10, 8, -6, -8, -6, 0xffeb7a, 1).setDepth(2200);
         this.playerIndicator.setStrokeStyle(2, 0x4d2f20, 0.9);
+    }
+
+    getFrameOffsetForName(name) {
+        const lower = String(name || "").toLowerCase();
+        return lower === "wife" ? 12 : 0;
     }
 
     setupNetworking() {
@@ -1043,7 +1040,14 @@ export class WorldScene extends Phaser.Scene {
             }
 
             seen.add(id);
-            const existing = this.players.get(id);
+            let existing = this.players.get(id);
+            const frameOffset = this.getFrameOffsetForName(state.name);
+
+            if (existing && existing.frameOffset !== frameOffset) {
+                existing.destroy();
+                this.players.delete(id);
+                existing = null;
+            }
 
             if (!existing) {
                 const entity = new PlayerEntity(
@@ -1051,7 +1055,7 @@ export class WorldScene extends Phaser.Scene {
                     state.x ?? 500,
                     state.y ?? 500,
                     "player",
-                    chooseColorOffset(id),
+                    frameOffset,
                     id,
                     state.name || `P-${id.slice(0, 3)}`
                 );
@@ -2213,7 +2217,22 @@ export class WorldScene extends Phaser.Scene {
         const style = MATERIAL_STYLE[material];
         const x = gridX * TILE_SIZE + TILE_SIZE / 2;
         const y = gridY * TILE_SIZE + TILE_SIZE / 2;
-        const visual = this.add.rectangle(x, y, TILE_SIZE, TILE_SIZE, style.fill, style.alpha || 0.97).setDepth(930 + y);
+        const base = this.add.rectangle(0, 0, TILE_SIZE, TILE_SIZE, style.fill, style.alpha || 0.97);
+        const topEdge = this.add.rectangle(0, -TILE_SIZE / 2 + 6, TILE_SIZE, 12, 0xffffff, material === "steel" ? 0.2 : 0.12);
+        const leftShade = this.add.rectangle(-TILE_SIZE / 2 + 5, 0, 10, TILE_SIZE, 0x111111, material === "steel" ? 0.26 : 0.14);
+        const rightShade = this.add.rectangle(TILE_SIZE / 2 - 4, 0, 8, TILE_SIZE, 0x000000, material === "steel" ? 0.33 : 0.18);
+        const visualParts = [base, topEdge, leftShade, rightShade];
+
+        if (material === "steel") {
+            const seam = this.add.rectangle(0, 0, TILE_SIZE, 2, 0xced5de, 0.36);
+            const rivetA = this.add.circle(-16, -16, 2, 0xdbe2ea, 0.9);
+            const rivetB = this.add.circle(16, -16, 2, 0xdbe2ea, 0.9);
+            const rivetC = this.add.circle(-16, 16, 2, 0xdbe2ea, 0.9);
+            const rivetD = this.add.circle(16, 16, 2, 0xdbe2ea, 0.9);
+            visualParts.push(seam, rivetA, rivetB, rivetC, rivetD);
+        }
+
+        const visual = this.add.container(x, y, visualParts).setDepth(930 + y);
         const collider = this.add.rectangle(x, y, TILE_SIZE, TILE_SIZE, 0x000000, 0);
         this.physics.add.existing(collider, true);
         this.buildBlockColliders?.add(collider);
