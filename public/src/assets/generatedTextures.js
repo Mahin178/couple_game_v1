@@ -1,102 +1,110 @@
 function drawBody(ctx, frameX, frameY, bodyColor, direction, phase) {
     const ox = frameX * 32;
     const oy = frameY * 32;
-    const swing = phase === 1 ? -2 : phase === 2 ? 2 : 0;
+    const swing = phase === 1 ? -1 : phase === 2 ? 1 : 0;
     const isWifeVariant = bodyColor.toLowerCase() === "#f06392";
+    const skin = isWifeVariant ? "#ffd6c5" : "#f3cdb5";
+    const hair = isWifeVariant ? "#5d2c47" : "#4a3428";
+    const clothMain = isWifeVariant ? "#f06392" : "#4b8cf7";
+    const clothSoft = isWifeVariant ? "#ffd7e7" : "#d7e8ff";
+    const shoe = "#2d2d34";
 
-    ctx.fillStyle = "#2f2f2f";
-    const legOffset = swing;
+    // Legs
+    ctx.fillStyle = shoe;
+    const legShift = swing;
 
     if (direction === "left" || direction === "right") {
-        ctx.fillRect(ox + 11, oy + 23 + legOffset, 4, 7);
-        ctx.fillRect(ox + 17, oy + 23 - legOffset, 4, 7);
+        ctx.fillRect(ox + 11, oy + 23 + legShift, 4, 7);
+        ctx.fillRect(ox + 17, oy + 23 - legShift, 4, 7);
     } else {
-        ctx.fillRect(ox + 11 + legOffset, oy + 23, 4, 7);
-        ctx.fillRect(ox + 17 - legOffset, oy + 23, 4, 7);
+        ctx.fillRect(ox + 11 + legShift, oy + 23, 4, 7);
+        ctx.fillRect(ox + 17 - legShift, oy + 23, 4, 7);
     }
 
-    ctx.fillStyle = bodyColor;
+    // Outfit
+    ctx.fillStyle = clothMain;
+    ctx.fillRect(ox + 8, oy + 12, 16, 10);
+    ctx.fillRect(ox + 9, oy + 21, 14, 2);
     if (isWifeVariant) {
-        ctx.fillRect(ox + 9, oy + 11, 14, 9);
+        ctx.fillStyle = "#f58eb2";
         ctx.fillRect(ox + 7, oy + 20, 18, 4);
-    } else {
-        ctx.fillRect(ox + 7, oy + 11, 18, 11);
-        ctx.fillRect(ox + 8, oy + 22, 16, 2);
     }
-    ctx.fillStyle = isWifeVariant ? "#ffd7e7" : "#d5e3ff";
-    ctx.fillRect(ox + 10, oy + 14, 12, 3);
-    ctx.fillStyle = "#2a2a2a";
-    ctx.fillRect(ox + 8, oy + 23, 16, 1);
+    ctx.fillStyle = clothSoft;
+    ctx.fillRect(ox + 11, oy + 14, 10, 4);
 
-    // Arms and hands for a more expressive walk cycle.
-    ctx.fillStyle = bodyColor;
+    // Arms
+    ctx.fillStyle = clothMain;
     if (direction === "left" || direction === "right") {
-        ctx.fillRect(ox + 7, oy + 12 - swing, 3, 8);
-        ctx.fillRect(ox + 22, oy + 12 + swing, 3, 8);
+        ctx.fillRect(ox + 7, oy + 13 - swing, 3, 7);
+        ctx.fillRect(ox + 22, oy + 13 + swing, 3, 7);
     } else {
-        ctx.fillRect(ox + 6 + swing, oy + 12, 3, 8);
-        ctx.fillRect(ox + 23 - swing, oy + 12, 3, 8);
+        ctx.fillRect(ox + 7 + swing, oy + 13, 3, 7);
+        ctx.fillRect(ox + 22 - swing, oy + 13, 3, 7);
     }
 
-    ctx.fillStyle = "#efc5a4";
+    // Hands
+    ctx.fillStyle = skin;
     if (direction === "left" || direction === "right") {
-        ctx.fillRect(ox + 7, oy + 20 - swing, 3, 3);
-        ctx.fillRect(ox + 22, oy + 20 + swing, 3, 3);
+        ctx.fillRect(ox + 7, oy + 20 - swing, 3, 2);
+        ctx.fillRect(ox + 22, oy + 20 + swing, 3, 2);
     } else {
-        ctx.fillRect(ox + 6 + swing, oy + 20, 3, 3);
-        ctx.fillRect(ox + 23 - swing, oy + 20, 3, 3);
+        ctx.fillRect(ox + 7 + swing, oy + 20, 3, 2);
+        ctx.fillRect(ox + 22 - swing, oy + 20, 3, 2);
     }
 
-    ctx.fillStyle = "#efc5a4";
+    // Head
+    ctx.fillStyle = skin;
     ctx.fillRect(ox + 10, oy + 4, 12, 9);
-    ctx.fillStyle = "#d7ae8d";
-    ctx.fillRect(ox + 10, oy + 12, 12, 1);
+    ctx.fillStyle = "#f7e3d9";
+    ctx.fillRect(ox + 11, oy + 5, 10, 2);
 
-    // Hair + face details.
-    ctx.fillStyle = isWifeVariant ? "#3e2335" : "#2b2623";
+    // Hair and cute silhouette
+    ctx.fillStyle = hair;
     ctx.fillRect(ox + 9, oy + 3, 14, 3);
     if (direction === "left") {
         ctx.fillRect(ox + 9, oy + 4, 4, 8);
     } else if (direction === "right") {
         ctx.fillRect(ox + 19, oy + 4, 4, 8);
     } else {
-        ctx.fillRect(ox + 9, oy + 4, 2, 7);
-        ctx.fillRect(ox + 21, oy + 4, 2, 7);
+        ctx.fillRect(ox + 9, oy + 4, 2, 8);
+        ctx.fillRect(ox + 21, oy + 4, 2, 8);
+    }
+    if (isWifeVariant && direction === "down") {
+        ctx.fillRect(ox + 8, oy + 7, 2, 5);
+        ctx.fillRect(ox + 22, oy + 7, 2, 5);
     }
 
-    ctx.fillStyle = "#1b1b1b";
+    // Face
     if (direction === "down") {
+        ctx.fillStyle = "#1d1d1f";
         ctx.fillRect(ox + 13, oy + 8, 2, 2);
         ctx.fillRect(ox + 17, oy + 8, 2, 2);
-        ctx.fillStyle = isWifeVariant ? "#d7688e" : "#b9826f";
+        ctx.fillStyle = isWifeVariant ? "#f1a3ba" : "#efb8aa";
+        ctx.fillRect(ox + 11, oy + 9, 2, 1);
+        ctx.fillRect(ox + 19, oy + 9, 2, 1);
+        ctx.fillStyle = isWifeVariant ? "#cf587f" : "#a86c5d";
         ctx.fillRect(ox + 14, oy + 10, 4, 1);
-        if (!isWifeVariant) {
-            ctx.fillStyle = "#6f4938";
-            ctx.fillRect(ox + 13, oy + 11, 6, 1);
-        }
     } else if (direction === "left") {
+        ctx.fillStyle = "#1d1d1f";
         ctx.fillRect(ox + 12, oy + 8, 2, 2);
+        ctx.fillStyle = isWifeVariant ? "#cf587f" : "#a86c5d";
+        ctx.fillRect(ox + 12, oy + 10, 2, 1);
     } else if (direction === "right") {
+        ctx.fillStyle = "#1d1d1f";
         ctx.fillRect(ox + 18, oy + 8, 2, 2);
+        ctx.fillStyle = isWifeVariant ? "#cf587f" : "#a86c5d";
+        ctx.fillRect(ox + 18, oy + 10, 2, 1);
     }
 
-    // Small accessory accent.
-    ctx.fillStyle = isWifeVariant ? "#fce3a8" : "#9fe8f8";
-    if (direction === "up") {
-        ctx.fillRect(ox + 15, oy + 7, 2, 2);
-    } else {
-        ctx.fillRect(ox + 20, oy + 7, 2, 2);
-    }
-
-    ctx.fillStyle = "#1f1f1f";
+    // Back-hair for top view and a tiny accessory.
+    ctx.fillStyle = hair;
     if (direction === "up") {
         ctx.fillRect(ox + 10, oy + 4, 12, 3);
-    } else if (direction === "down") {
-        ctx.fillRect(ox + 10, oy + 9, 12, 3);
-    } else if (direction === "left") {
-        ctx.fillRect(ox + 10, oy + 4, 3, 9);
-    } else {
-        ctx.fillRect(ox + 19, oy + 4, 3, 9);
+        ctx.fillStyle = isWifeVariant ? "#f8db7e" : "#9fe8f8";
+        ctx.fillRect(ox + 15, oy + 7, 2, 2);
+    } else if (direction === "down" && isWifeVariant) {
+        ctx.fillStyle = "#f8db7e";
+        ctx.fillRect(ox + 20, oy + 7, 2, 2);
     }
 }
 

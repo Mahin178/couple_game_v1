@@ -46,6 +46,10 @@ const FULL_MAP_REFRESH_MS = 260;
 const HUD_REFRESH_MS = 240;
 const AIM_REFRESH_MS = 80;
 const AI_REFRESH_MS = 55;
+const RESOURCE_CULL_MS = 220;
+const COW_ACTIVE_RANGE = 1500;
+const ZOMBIE_ACTIVE_RANGE = 1800;
+const DRAW_CULL_MARGIN = 280;
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -150,6 +154,7 @@ export class WorldScene extends Phaser.Scene {
         this.lastHudRefreshAt = 0;
         this.lastAimUpdateAt = 0;
         this.lastAiTickAt = 0;
+        this.lastResourceCullAt = 0;
         this.lastBackpackText = "";
         this.lastUiHintKey = "";
     }
@@ -673,7 +678,8 @@ export class WorldScene extends Phaser.Scene {
         }
 
         this.cameras.main.setZoom(this.isTouchDevice ? 1.14 : 1.24);
-        this.cameras.main.startFollow(this.localPlayer.sprite, true, 0.16, 0.16);
+        this.cameras.main.startFollow(this.localPlayer.sprite, true, 1, 1);
+        this.cameras.main.followOffset.set(0, 0);
     }
 
     createPlayerIndicator() {
@@ -1160,6 +1166,10 @@ export class WorldScene extends Phaser.Scene {
             this.updateCows(aiDt, time);
             this.updateZombies(aiDt, time);
         }
+        if (time - this.lastResourceCullAt > RESOURCE_CULL_MS) {
+            this.lastResourceCullAt = time;
+            this.updateResourceVisibility();
+        }
         if (time - this.lastAimUpdateAt > AIM_REFRESH_MS) {
             this.lastAimUpdateAt = time;
             this.updateAimTarget(time);
@@ -1461,7 +1471,16 @@ export class WorldScene extends Phaser.Scene {
         }
     }
 
+    isInsideCameraView(x, y, margin = DRAW_CULL_MARGIN) {
+        const view = this.cameras.main.worldView;
+        return x >= view.x - margin && x <= view.right + margin && y >= view.y - margin && y <= view.bottom + margin;
+    }
+
     updateCows(dt, time) {
+        const local = this.getPlayerWorldPosition(this.socketAdapter.id);
+        const maxRange = this.isTouchDevice ? COW_ACTIVE_RANGE * 0.75 : COW_ACTIVE_RANGE;
+        const maxRangeSq = maxRange * maxRange;
+
         for (const cow of this.cows) {
             if (!cow.alive) {
                 if (time > cow.respawnAt) {
@@ -1475,6 +1494,19 @@ export class WorldScene extends Phaser.Scene {
                     cow.spotA.setVisible(true);
                     cow.spotB.setVisible(true);
                 }
+                continue;
+            }
+
+            const dx = local ? cow.x - local.x : 0;
+            const dy = local ? cow.y - local.y : 0;
+            const nearPlayer = !local || (dx * dx + dy * dy) < maxRangeSq;
+            if (!nearPlayer) {
+                const show = this.isInsideCameraView(cow.x, cow.y, 120);
+                cow.shadow.setVisible(show);
+                cow.body.setVisible(show);
+                cow.head.setVisible(show);
+                cow.spotA.setVisible(show);
+                cow.spotB.setVisible(show);
                 continue;
             }
 
@@ -1503,6 +1535,17 @@ export class WorldScene extends Phaser.Scene {
             cow.x = nextX;
             cow.y = nextY;
 
+            const visible = this.isInsideCameraView(cow.x, cow.y);
+            cow.shadow.setVisible(visible);
+            cow.body.setVisible(visible);
+            cow.head.setVisible(visible);
+            cow.spotA.setVisible(visible);
+            cow.spotB.setVisible(visible);
+
+            if (!visible) {
+                continue;
+            }
+
             cow.shadow.setPosition(cow.x, cow.y + 12);
             cow.body.setPosition(cow.x, cow.y);
             cow.head.setPosition(cow.x + Math.sign(dir.x || 1) * 20, cow.y - 1);
@@ -1513,6 +1556,8 @@ export class WorldScene extends Phaser.Scene {
 
     updateZombies(dt, time) {
         const localPos = this.getPlayerWorldPosition(this.socketAdapter.id);
+        const maxRange = this.isTouchDevice ? ZOMBIE_ACTIVE_RANGE * 0.72 : ZOMBIE_ACTIVE_RANGE;
+        const maxRangeSq = maxRange * maxRange;
 
         for (const zombie of this.zombies) {
             if (!zombie.alive) {
@@ -1528,6 +1573,20 @@ export class WorldScene extends Phaser.Scene {
                     zombie.eyeR.setVisible(true);
                 }
                 continue;
+            }
+
+            if (localPos) {
+                const dx = zombie.x - localPos.x;
+                const dy = zombie.y - localPos.y;
+                if (dx * dx + dy * dy > maxRangeSq) {
+                    const show = this.isInsideCameraView(zombie.x, zombie.y, 100);
+                    zombie.shadow.setVisible(show);
+                    zombie.body.setVisible(show);
+                    zombie.head.setVisible(show);
+                    zombie.eyeL.setVisible(show);
+                    zombie.eyeR.setVisible(show);
+                    continue;
+                }
             }
 
             let best = null;
@@ -1572,6 +1631,17 @@ export class WorldScene extends Phaser.Scene {
 
             zombie.x = nextX;
             zombie.y = nextY;
+
+            const visible = this.isInsideCameraView(zombie.x, zombie.y);
+            zombie.shadow.setVisible(visible);
+            zombie.body.setVisible(visible);
+            zombie.head.setVisible(visible);
+            zombie.eyeL.setVisible(visible);
+            zombie.eyeR.setVisible(visible);
+
+            if (!visible) {
+                continue;
+            }
 
             zombie.shadow.setPosition(zombie.x, zombie.y + 10);
             zombie.body.setPosition(zombie.x, zombie.y);
@@ -1821,6 +1891,29 @@ export class WorldScene extends Phaser.Scene {
             node.core.setVisible(true);
             node.shadow.setVisible(true);
             node.label?.setVisible(true);
+        }
+    }
+
+    updateResourceVisibility() {
+        const local = this.getPlayerWorldPosition(this.socketAdapter.id);
+        const maxRange = this.isTouchDevice ? 1700 : 2300;
+        const maxRangeSq = maxRange * maxRange;
+
+        for (const node of this.resourceNodes) {
+            if (!node.active) {
+                continue;
+            }
+
+            let nearLocal = true;
+            if (local) {
+                const dx = node.x - local.x;
+                const dy = node.y - local.y;
+                nearLocal = dx * dx + dy * dy <= maxRangeSq;
+            }
+            const visible = nearLocal && this.isInsideCameraView(node.x, node.y, 140);
+            node.core.setVisible(visible);
+            node.shadow.setVisible(visible);
+            node.label?.setVisible(visible);
         }
     }
 
@@ -2622,31 +2715,15 @@ export class WorldScene extends Phaser.Scene {
         const target = followVehicleId ? this.vehicleSprites[followVehicleId]?.container : this.localPlayer.sprite;
 
         if (target && this.cameras.main._follow !== target) {
-            this.cameras.main.startFollow(target, true, 0.14, 0.14);
+            this.cameras.main.startFollow(target, true, 1, 1);
+            this.cameras.main.followOffset.set(0, 0);
         }
     }
 
     updateCameraPov() {
-        const seat = this.getLocalSeat();
-        let velX = 0;
-        let velY = 0;
-
-        if (seat) {
-            const v = this.vehicleStates[seat.vehicleId];
-            if (v) {
-                velX = Math.cos(v.angle) * v.speed;
-                velY = Math.sin(v.angle) * v.speed;
-            }
-        } else if (this.localPlayer?.sprite?.body) {
-            velX = this.localPlayer.sprite.body.velocity.x;
-            velY = this.localPlayer.sprite.body.velocity.y;
-        }
-
-        const maxOffset = this.isTouchDevice ? 38 : 54;
-        const desiredX = clamp(velX * 0.095, -maxOffset, maxOffset);
-        const desiredY = clamp(velY * 0.095, -maxOffset, maxOffset);
-        this.cameras.main.followOffset.x = Phaser.Math.Linear(this.cameras.main.followOffset.x, desiredX, 0.12);
-        this.cameras.main.followOffset.y = Phaser.Math.Linear(this.cameras.main.followOffset.y, desiredY, 0.12);
+        // Keep player centered for stable, readable gameplay on both mobile and desktop.
+        this.cameras.main.followOffset.x = 0;
+        this.cameras.main.followOffset.y = 0;
     }
 
     updatePlayerIndicator(time) {
@@ -2660,9 +2737,9 @@ export class WorldScene extends Phaser.Scene {
     }
 
     createDayNightOverlay() {
-        this.dayNight = this.add.rectangle(0, 0, WORLD_SIZE, WORLD_SIZE, 0x0a1130, 0.1);
+        this.dayNight = this.add.rectangle(0, 0, this.scale.width, this.scale.height, 0x0a1130, 0.1);
         this.dayNight.setOrigin(0, 0);
-        this.dayNight.setScrollFactor(1);
+        this.dayNight.setScrollFactor(0);
         this.dayNight.setBlendMode(Phaser.BlendModes.MULTIPLY);
         this.dayNight.setDepth(5000);
     }
@@ -2670,6 +2747,9 @@ export class WorldScene extends Phaser.Scene {
     updateDayNight(time) {
         const cycle = (Math.sin(time / 14000) + 1) / 2;
         this.dayNight.setAlpha(0.06 + cycle * 0.22);
+        if (this.dayNight.width !== this.scale.width || this.dayNight.height !== this.scale.height) {
+            this.dayNight.setSize(this.scale.width, this.scale.height);
+        }
     }
 
     updateBondMeter() {
