@@ -336,7 +336,8 @@ canvas {
 
 #emojiBar {
     position: fixed;
-    right: 12px;
+    left: 12px;
+    right: auto;
     bottom: calc(14px + env(safe-area-inset-bottom));
     display: flex;
     gap: 8px;
@@ -603,11 +604,11 @@ canvas {
     }
 
     #emojiBar {
-        left: 50%;
+        left: 8px;
         right: auto;
-        transform: translateX(-50%);
+        transform: none;
         bottom: calc(10px + env(safe-area-inset-bottom));
-        max-width: calc(100vw - 132px);
+        max-width: calc(100vw - 140px);
         overflow-x: auto;
     }
 

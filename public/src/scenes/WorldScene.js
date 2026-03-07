@@ -177,6 +177,7 @@ export class WorldScene extends Phaser.Scene {
         this.voiceStates = new Map();
         this.pendingVoiceCandidates = new Map();
         this.rtcIceServers = [{ urls: "stun:stun.l.google.com:19302" }];
+        this.hasVoiceGesture = false;
 
         this.aiRefreshMs = AI_REFRESH_MS;
         this.resourceCullMs = RESOURCE_CULL_MS;
@@ -216,6 +217,7 @@ export class WorldScene extends Phaser.Scene {
         this.bindVoiceToggle();
         this.bindMobileUi();
         this.bindMapUi();
+        this.bindVoiceGestureUnlock();
         this.loadRtcConfig();
 
         // Delay heavy decorative drawing so controls feel responsive immediately on load.
@@ -1118,13 +1120,35 @@ export class WorldScene extends Phaser.Scene {
         }
 
         this.voiceToggleHandler = () => {
-            this.ensureAudioReady();
+            this.unlockVoicePlayback();
             this.toggleVoiceChat().catch(() => {
                 this.setMission("Voice chat could not start. Check microphone permission.");
             });
         };
         this.hud.micToggle.addEventListener("click", this.voiceToggleHandler);
         this.hud.setMicActive(false);
+    }
+
+    bindVoiceGestureUnlock() {
+        this.voiceGestureHandler = () => {
+            this.unlockVoicePlayback();
+        };
+
+        window.addEventListener("pointerdown", this.voiceGestureHandler, { passive: true });
+        window.addEventListener("touchstart", this.voiceGestureHandler, { passive: true });
+        window.addEventListener("keydown", this.voiceGestureHandler);
+    }
+
+    unlockVoicePlayback() {
+        this.hasVoiceGesture = true;
+        this.ensureAudioReady();
+        this.resumeRemoteAudioPlayback();
+    }
+
+    resumeRemoteAudioPlayback() {
+        for (const audio of this.remoteAudio.values()) {
+            audio.play().catch(() => {});
+        }
     }
 
     async toggleVoiceChat() {
@@ -1260,7 +1284,9 @@ export class WorldScene extends Phaser.Scene {
             audio.srcObject = stream;
             audio.muted = false;
             audio.volume = 1;
-            audio.play().catch(() => {});
+            if (this.hasVoiceGesture) {
+                audio.play().catch(() => {});
+            }
         };
 
         pc.onconnectionstatechange = () => {
@@ -3397,6 +3423,11 @@ export class WorldScene extends Phaser.Scene {
         }
         if (this.hud.micToggle && this.voiceToggleHandler) {
             this.hud.micToggle.removeEventListener("click", this.voiceToggleHandler);
+        }
+        if (this.voiceGestureHandler) {
+            window.removeEventListener("pointerdown", this.voiceGestureHandler);
+            window.removeEventListener("touchstart", this.voiceGestureHandler);
+            window.removeEventListener("keydown", this.voiceGestureHandler);
         }
 
         for (const { button, handler } of this.emojiHandlers || []) {
