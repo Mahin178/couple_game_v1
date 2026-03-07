@@ -175,6 +175,7 @@ export class WorldScene extends Phaser.Scene {
         this.voicePeers = new Map();
         this.remoteAudio = new Map();
         this.voiceStates = new Map();
+        this.pendingVoiceCandidates = new Map();
 
         this.aiRefreshMs = AI_REFRESH_MS;
         this.resourceCullMs = RESOURCE_CULL_MS;
@@ -942,8 +943,18 @@ export class WorldScene extends Phaser.Scene {
             this.handleVoiceSignal(payload).catch(() => {});
         });
 
+        this.unsubVoiceStates = this.socketAdapter.on("voiceStates", (payload) => {
+            const states = payload && typeof payload === "object" ? payload : {};
+            for (const [id, enabled] of Object.entries(states)) {
+                this.voiceStates.set(id, Boolean(enabled));
+                if (this.voiceEnabled && enabled && id !== this.socketAdapter.id) {
+                    this.ensureVoiceConnection(id).catch(() => {});
+                }
+            }
+        });
+
         this.unsubVoiceState = this.socketAdapter.on("voiceState", ({ id, enabled }) => {
-            if (!id) {
+            if (!id || id === this.socketAdapter.id) {
                 return;
             }
             this.voiceStates.set(id, Boolean(enabled));
@@ -1092,6 +1103,7 @@ export class WorldScene extends Phaser.Scene {
         }
 
         this.voiceToggleHandler = () => {
+            this.ensureAudioReady();
             this.toggleVoiceChat().catch(() => {
                 this.setMission("Voice chat could not start. Check microphone permission.");
             });
@@ -1152,7 +1164,13 @@ export class WorldScene extends Phaser.Scene {
     }
 
     async ensureVoiceConnection(peerId) {
-        if (!this.voiceEnabled || !this.voiceStream || !peerId || this.voicePeers.has(peerId)) {
+        if (
+            !this.voiceEnabled ||
+            !this.voiceStream ||
+            !peerId ||
+            peerId === this.socketAdapter.id ||
+            this.voicePeers.has(peerId)
+        ) {
             return;
         }
 
@@ -1180,12 +1198,17 @@ export class WorldScene extends Phaser.Scene {
                 audio = document.createElement("audio");
                 audio.autoplay = true;
                 audio.playsInline = true;
+                audio.setAttribute("autoplay", "");
+                audio.setAttribute("playsinline", "");
                 audio.dataset.peerId = peerId;
                 audio.style.display = "none";
                 document.body.appendChild(audio);
                 this.remoteAudio.set(peerId, audio);
             }
             audio.srcObject = stream;
+            audio.muted = false;
+            audio.volume = 1;
+            audio.play().catch(() => {});
         };
 
         pc.onconnectionstatechange = () => {
@@ -1220,6 +1243,7 @@ export class WorldScene extends Phaser.Scene {
 
         if (description) {
             await pc.setRemoteDescription(new RTCSessionDescription(description));
+            await this.flushPendingVoiceCandidates(fromId, pc);
             if (description.type === "offer") {
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
@@ -1229,6 +1253,35 @@ export class WorldScene extends Phaser.Scene {
         }
 
         if (candidate) {
+            if (!pc.remoteDescription) {
+                this.queueVoiceCandidate(fromId, candidate);
+                return;
+            }
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (_error) {}
+        }
+    }
+
+    queueVoiceCandidate(peerId, candidate) {
+        if (!peerId || !candidate) {
+            return;
+        }
+
+        if (!this.pendingVoiceCandidates.has(peerId)) {
+            this.pendingVoiceCandidates.set(peerId, []);
+        }
+        this.pendingVoiceCandidates.get(peerId).push(candidate);
+    }
+
+    async flushPendingVoiceCandidates(peerId, pc) {
+        const pending = this.pendingVoiceCandidates.get(peerId);
+        if (!pending?.length || !pc?.remoteDescription) {
+            return;
+        }
+
+        this.pendingVoiceCandidates.delete(peerId);
+        for (const candidate of pending) {
             try {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (_error) {}
@@ -1243,6 +1296,7 @@ export class WorldScene extends Phaser.Scene {
             pc.close();
             this.voicePeers.delete(peerId);
         }
+        this.pendingVoiceCandidates.delete(peerId);
 
         const audio = this.remoteAudio.get(peerId);
         if (audio) {
@@ -3213,11 +3267,15 @@ export class WorldScene extends Phaser.Scene {
 
     refreshHealthStatus() {
         this.hud.setHealthStatus({
-            value: this.health,
+            value: this.getDisplayedHealthStatus(),
             hunger: this.hunger,
             bitesTaken: this.bitesTaken,
             maxBites: MAX_ZOMBIE_BITES
         });
+    }
+
+    getDisplayedHealthStatus() {
+        return Math.min(this.health, this.hunger);
     }
 
     cleanup() {
@@ -3244,6 +3302,9 @@ export class WorldScene extends Phaser.Scene {
         }
         if (this.unsubVoiceState) {
             this.unsubVoiceState();
+        }
+        if (this.unsubVoiceStates) {
+            this.unsubVoiceStates();
         }
 
         if (this.chatForm && this.chatHandler) {

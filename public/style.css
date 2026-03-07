@@ -552,6 +552,10 @@ canvas {
 }
 
 @media (max-width: 860px), (pointer: coarse) {
+    #authorTag {
+        display: none;
+    }
+
     #mobileJoystick {
         display: block;
     }
@@ -576,8 +580,9 @@ canvas {
     }
 
     #zoomControls {
-        right: 10px;
-        top: 62px;
+        position: static;
+        margin-left: auto;
+        pointer-events: auto;
     }
 
     #chatForm {
@@ -645,16 +650,18 @@ canvas {
         left: 8px;
         right: 8px;
         gap: 8px;
+        align-items: stretch;
     }
 
     #backpackCard {
-        width: min(100%, 360px);
+        width: 100%;
+        max-width: none;
         padding: 8px 10px 8px 12px;
     }
 
     #healthMeterWrap {
         min-width: 0;
-        width: min(48vw, 190px);
+        width: 100%;
         margin-left: 0;
         padding: 7px 9px;
     }
@@ -664,7 +671,8 @@ canvas {
     }
 
     #zoomControls {
-        top: 48px;
+        width: 100%;
+        justify-content: flex-end;
         gap: 6px;
     }
 
