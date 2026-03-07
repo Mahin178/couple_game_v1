@@ -142,11 +142,13 @@ canvas {
 
 #zoomControls {
     position: fixed;
-    right: 12px;
-    top: 56px;
+    left: 12px;
+    right: auto;
+    top: 104px;
     display: flex;
     gap: 8px;
     pointer-events: auto;
+    z-index: 1200;
 }
 
 #zoomControls button {
@@ -575,14 +577,16 @@ canvas {
     #miniMapWrap {
         width: 118px;
         height: 118px;
-        top: 112px;
+        top: 232px;
         right: 10px;
     }
 
     #zoomControls {
-        position: static;
-        margin-left: auto;
-        pointer-events: auto;
+        position: fixed;
+        left: 10px;
+        right: auto;
+        top: 232px;
+        margin-left: 0;
     }
 
     #chatForm {
@@ -671,9 +675,11 @@ canvas {
     }
 
     #zoomControls {
-        width: 100%;
-        justify-content: flex-end;
+        width: auto;
+        justify-content: flex-start;
         gap: 6px;
+        left: 8px;
+        top: 214px;
     }
 
     #zoomControls button {
@@ -685,7 +691,7 @@ canvas {
     #miniMapWrap {
         width: 102px;
         height: 102px;
-        top: 108px;
+        top: 214px;
         right: 8px;
     }
 

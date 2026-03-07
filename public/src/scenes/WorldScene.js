@@ -1194,12 +1194,25 @@ export class WorldScene extends Phaser.Scene {
                 }
             }
 
-            if (added && this.socketAdapter.id && this.socketAdapter.id < peerId) {
+            if (added && this.shouldInitiateVoiceOffer(peerId)) {
                 const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
                 this.socketAdapter.voiceSignal({ toId: peerId, description: pc.localDescription });
             }
         }
+    }
+
+    shouldInitiateVoiceOffer(peerId) {
+        if (!this.voiceEnabled || !peerId || peerId === this.socketAdapter.id) {
+            return false;
+        }
+
+        const remoteVoiceEnabled = Boolean(this.voiceStates.get(peerId));
+        if (!remoteVoiceEnabled) {
+            return true;
+        }
+
+        return Boolean(this.socketAdapter.id) && this.socketAdapter.id < peerId;
     }
 
     async ensureVoiceConnection(peerId) {
@@ -1258,7 +1271,7 @@ export class WorldScene extends Phaser.Scene {
 
         this.voicePeers.set(peerId, pc);
 
-        if (this.voiceEnabled && this.socketAdapter.id && this.socketAdapter.id < peerId) {
+        if (this.shouldInitiateVoiceOffer(peerId)) {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             this.socketAdapter.voiceSignal({ toId: peerId, description: pc.localDescription });
