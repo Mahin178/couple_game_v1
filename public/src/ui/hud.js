@@ -2,8 +2,8 @@ export function createHudControls() {
     const chatForm = document.getElementById("chatForm");
     const chatInput = document.getElementById("chatInput");
     const emojiButtons = Array.from(document.querySelectorAll(".emojiBtn"));
-    const loveFill = document.getElementById("loveFill");
-    const loveStatus = document.getElementById("loveStatus");
+    const healthFill = document.getElementById("healthFill");
+    const healthMeta = document.getElementById("healthMeta");
     const authorTag = document.getElementById("authorTag");
     const chatToggle = document.getElementById("btnChatToggle");
     const micToggle = document.getElementById("btnMicToggle");
@@ -78,11 +78,14 @@ export function createHudControls() {
         buildInfo,
         mobileBuildAction,
         backpackInfo,
-        setLove(value) {
+        setHealthStatus({ value, hunger, bitesTaken, maxBites }) {
             const clamped = Math.max(0, Math.min(100, value));
-            loveFill.style.width = `${clamped}%`;
-            if (loveStatus) {
-                loveStatus.textContent = `Love Status: ${Math.round(clamped)}%`;
+            if (healthFill) {
+                healthFill.style.width = `${clamped}%`;
+            }
+            if (healthMeta) {
+                healthMeta.textContent =
+                    `HP ${Math.round(clamped)}% | Hunger ${Math.round(hunger)}% | Bites ${bitesTaken}/${maxBites}`;
             }
         },
         setMission(text) {
@@ -94,6 +97,8 @@ export function createHudControls() {
             }
             micToggle.classList.toggle("active", Boolean(active));
             micToggle.textContent = active ? "🔴" : "🎤";
+            micToggle.setAttribute("aria-label", active ? "Turn microphone off" : "Turn microphone on");
+            micToggle.title = active ? "Turn microphone off" : "Turn microphone on";
         },
         setBuildModeLabel(text) {
             if (buttons.buildMode) {

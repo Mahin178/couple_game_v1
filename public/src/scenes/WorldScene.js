@@ -51,6 +51,7 @@ const COW_ACTIVE_RANGE = 1500;
 const ZOMBIE_ACTIVE_RANGE = 1800;
 const DRAW_CULL_MARGIN = 280;
 const MAX_HEALTH = 100;
+const MAX_ZOMBIE_BITES = 4;
 const ZOMBIE_BITE_DAMAGE = 25;
 const HUNGER_DAMAGE = 5;
 const ZOMBIE_BITE_INTERVAL_MS = 500;
@@ -185,7 +186,7 @@ export class WorldScene extends Phaser.Scene {
     create() {
         this.hud = createHudControls();
         this.hud.showGameOver(false);
-        this.hud.setLove(this.health);
+        this.refreshHealthStatus();
         this.setMission("Safe zone ready. Open the gate, collect resources, and return alive.");
 
         this.createMap();
@@ -210,6 +211,7 @@ export class WorldScene extends Phaser.Scene {
         this.bindDrivePadButtons();
         this.bindRestartButton();
         this.bindZoomButtons();
+        this.bindVoiceToggle();
         this.bindMobileUi();
         this.bindMapUi();
 
@@ -1080,19 +1082,32 @@ export class WorldScene extends Phaser.Scene {
             this.mobileChatHandler = () => this.setMobileChatOpen(!this.mobileChatOpen);
             this.hud.chatToggle.addEventListener("click", this.mobileChatHandler);
         }
-        if (this.hud.micToggle) {
-            this.mobileMicHandler = () => {
-                this.toggleVoiceChat().catch(() => {});
-            };
-            this.hud.micToggle.addEventListener("click", this.mobileMicHandler);
-        }
 
         this.setMobileChatOpen(false);
+    }
+
+    bindVoiceToggle() {
+        if (!this.hud.micToggle) {
+            return;
+        }
+
+        this.voiceToggleHandler = () => {
+            this.toggleVoiceChat().catch(() => {
+                this.setMission("Voice chat could not start. Check microphone permission.");
+            });
+        };
+        this.hud.micToggle.addEventListener("click", this.voiceToggleHandler);
+        this.hud.setMicActive(false);
     }
 
     async toggleVoiceChat() {
         if (this.voiceEnabled) {
             this.stopVoiceChat();
+            return;
+        }
+
+        if (!navigator.mediaDevices?.getUserMedia) {
+            this.setMission("This browser cannot access a microphone.");
             return;
         }
 
@@ -2015,7 +2030,7 @@ export class WorldScene extends Phaser.Scene {
                     this.bitesTaken += 1;
                     this.health = clamp(this.health - ZOMBIE_BITE_DAMAGE, 0, MAX_HEALTH);
                     this.pendingDeathReason = "Zombies reduced your health to zero.";
-                    this.setMission(`Zombie bite ${this.bitesTaken}/4. Health ${Math.round(this.health)}%.`);
+                    this.setMission(`Zombie bite ${this.bitesTaken}/${MAX_ZOMBIE_BITES}. Health ${Math.round(this.health)}%.`);
                     this.playTone({ frequency: 120, slideTo: 70, duration: 0.12, type: "square", volume: 0.06 });
                     if (this.health <= 0) {
                         this.triggerGameOver("You did not survive.", this.pendingDeathReason);
@@ -2385,8 +2400,8 @@ export class WorldScene extends Phaser.Scene {
             .filter(([, amount]) => amount > 0)
             .map(([name, amount]) => `${name}: ${amount}`);
         const backpackText = entries.length > 0
-            ? `${entries.join(" | ")} | HP ${Math.round(this.health)} | Hunger ${Math.round(this.hunger)}`
-            : `Backpack empty | HP ${Math.round(this.health)} | Hunger ${Math.round(this.hunger)}`;
+            ? entries.join(" | ")
+            : "Backpack empty";
 
         if (this.lastBackpackText === backpackText) {
             return;
@@ -3052,7 +3067,7 @@ export class WorldScene extends Phaser.Scene {
         const mode = this.isBuildMode ? "ON" : "OFF";
         const text =
             `Build ${mode} | ${label} ${this.inventory[this.selectedMaterial]} | ` +
-            `Health ${Math.round(this.health)} | Hunger ${Math.round(this.hunger)} | Bites ${this.bitesTaken}/4 | Keys B/F/G/R/E/J/[ ]/H`;
+            `Health ${Math.round(this.health)} | Hunger ${Math.round(this.hunger)} | Bites ${this.bitesTaken}/${MAX_ZOMBIE_BITES} | Keys B/F/G/R/E/J/[ ]/H`;
         this.hud.setBuildInfo(text);
     }
 
@@ -3193,7 +3208,16 @@ export class WorldScene extends Phaser.Scene {
     }
 
     updateBondMeter() {
-        this.hud.setLove(Math.round(this.health));
+        this.refreshHealthStatus();
+    }
+
+    refreshHealthStatus() {
+        this.hud.setHealthStatus({
+            value: this.health,
+            hunger: this.hunger,
+            bitesTaken: this.bitesTaken,
+            maxBites: MAX_ZOMBIE_BITES
+        });
     }
 
     cleanup() {
@@ -3253,8 +3277,8 @@ export class WorldScene extends Phaser.Scene {
         if (this.hud.chatToggle && this.mobileChatHandler) {
             this.hud.chatToggle.removeEventListener("click", this.mobileChatHandler);
         }
-        if (this.hud.micToggle && this.mobileMicHandler) {
-            this.hud.micToggle.removeEventListener("click", this.mobileMicHandler);
+        if (this.hud.micToggle && this.voiceToggleHandler) {
+            this.hud.micToggle.removeEventListener("click", this.voiceToggleHandler);
         }
 
         for (const { button, handler } of this.emojiHandlers || []) {
