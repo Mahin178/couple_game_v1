@@ -176,6 +176,7 @@ export class WorldScene extends Phaser.Scene {
         this.remoteAudio = new Map();
         this.voiceStates = new Map();
         this.pendingVoiceCandidates = new Map();
+        this.rtcIceServers = [{ urls: "stun:stun.l.google.com:19302" }];
 
         this.aiRefreshMs = AI_REFRESH_MS;
         this.resourceCullMs = RESOURCE_CULL_MS;
@@ -215,6 +216,7 @@ export class WorldScene extends Phaser.Scene {
         this.bindVoiceToggle();
         this.bindMobileUi();
         this.bindMapUi();
+        this.loadRtcConfig();
 
         // Delay heavy decorative drawing so controls feel responsive immediately on load.
         this.time.delayedCall(120, () => this.createWorldDetails());
@@ -947,7 +949,7 @@ export class WorldScene extends Phaser.Scene {
             const states = payload && typeof payload === "object" ? payload : {};
             for (const [id, enabled] of Object.entries(states)) {
                 this.voiceStates.set(id, Boolean(enabled));
-                if (this.voiceEnabled && enabled && id !== this.socketAdapter.id) {
+                if (enabled && id !== this.socketAdapter.id) {
                     this.ensureVoiceConnection(id).catch(() => {});
                 }
             }
@@ -960,10 +962,23 @@ export class WorldScene extends Phaser.Scene {
             this.voiceStates.set(id, Boolean(enabled));
             if (!enabled) {
                 this.closeVoicePeer(id);
-            } else if (this.voiceEnabled) {
+            } else {
                 this.ensureVoiceConnection(id).catch(() => {});
             }
         });
+    }
+
+    async loadRtcConfig() {
+        try {
+            const response = await fetch("/rtc-config", { cache: "no-store" });
+            if (!response.ok) {
+                return;
+            }
+            const payload = await response.json();
+            if (Array.isArray(payload?.iceServers) && payload.iceServers.length > 0) {
+                this.rtcIceServers = payload.iceServers;
+            }
+        } catch (_error) {}
     }
 
     bindChatInput() {
@@ -1140,6 +1155,7 @@ export class WorldScene extends Phaser.Scene {
         this.voiceEnabled = true;
         this.hud.setMicActive(true);
         this.socketAdapter.voiceState({ enabled: true });
+        await this.syncVoiceTracksToPeers();
         await this.ensureVoiceConnections();
     }
 
@@ -1163,10 +1179,31 @@ export class WorldScene extends Phaser.Scene {
         }
     }
 
+    async syncVoiceTracksToPeers() {
+        if (!this.voiceStream) {
+            return;
+        }
+
+        for (const [peerId, pc] of this.voicePeers.entries()) {
+            let added = false;
+            const senderTrackIds = new Set(pc.getSenders().map((sender) => sender.track?.id).filter(Boolean));
+            for (const track of this.voiceStream.getTracks()) {
+                if (!senderTrackIds.has(track.id)) {
+                    pc.addTrack(track, this.voiceStream);
+                    added = true;
+                }
+            }
+
+            if (added && this.socketAdapter.id && this.socketAdapter.id < peerId) {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                this.socketAdapter.voiceSignal({ toId: peerId, description: pc.localDescription });
+            }
+        }
+    }
+
     async ensureVoiceConnection(peerId) {
         if (
-            !this.voiceEnabled ||
-            !this.voiceStream ||
             !peerId ||
             peerId === this.socketAdapter.id ||
             this.voicePeers.has(peerId)
@@ -1175,11 +1212,13 @@ export class WorldScene extends Phaser.Scene {
         }
 
         const pc = new RTCPeerConnection({
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+            iceServers: this.rtcIceServers
         });
 
-        for (const track of this.voiceStream.getTracks()) {
-            pc.addTrack(track, this.voiceStream);
+        if (this.voiceStream) {
+            for (const track of this.voiceStream.getTracks()) {
+                pc.addTrack(track, this.voiceStream);
+            }
         }
 
         pc.onicecandidate = (event) => {
@@ -1219,7 +1258,7 @@ export class WorldScene extends Phaser.Scene {
 
         this.voicePeers.set(peerId, pc);
 
-        if (this.socketAdapter.id && this.socketAdapter.id < peerId) {
+        if (this.voiceEnabled && this.socketAdapter.id && this.socketAdapter.id < peerId) {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             this.socketAdapter.voiceSignal({ toId: peerId, description: pc.localDescription });
@@ -1228,10 +1267,6 @@ export class WorldScene extends Phaser.Scene {
 
     async handleVoiceSignal({ fromId, description, candidate }) {
         if (!fromId) {
-            return;
-        }
-
-        if (!this.voiceEnabled) {
             return;
         }
 
@@ -1245,6 +1280,15 @@ export class WorldScene extends Phaser.Scene {
             await pc.setRemoteDescription(new RTCSessionDescription(description));
             await this.flushPendingVoiceCandidates(fromId, pc);
             if (description.type === "offer") {
+                if (this.voiceStream) {
+                    const senders = pc.getSenders();
+                    const senderTrackIds = new Set(senders.map((sender) => sender.track?.id).filter(Boolean));
+                    for (const track of this.voiceStream.getTracks()) {
+                        if (!senderTrackIds.has(track.id)) {
+                            pc.addTrack(track, this.voiceStream);
+                        }
+                    }
+                }
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
                 this.socketAdapter.voiceSignal({ toId: fromId, description: pc.localDescription });

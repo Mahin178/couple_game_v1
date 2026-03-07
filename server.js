@@ -16,6 +16,39 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
+function getRtcIceServers() {
+    const raw = process.env.RTC_ICE_SERVERS;
+    if (raw) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
+            }
+        } catch (_error) {}
+    }
+
+    // Public fallback for prototype deployments. Replace with your own TURN in production.
+    return [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:global.stun.twilio.com:3478" },
+        {
+            urls: [
+                "turn:openrelay.metered.ca:80",
+                "turn:openrelay.metered.ca:443",
+                "turn:openrelay.metered.ca:443?transport=tcp"
+            ],
+            username: "openrelayproject",
+            credential: "openrelayproject"
+        }
+    ];
+}
+
+app.get("/rtc-config", (_req, res) => {
+    res.json({
+        iceServers: getRtcIceServers()
+    });
+});
+
 const players = {};
 const vehicles = {
     car_red: {
