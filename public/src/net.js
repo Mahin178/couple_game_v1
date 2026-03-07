@@ -12,6 +12,8 @@ export function createSocketAdapter(socket) {
     socket.on("loveBoost", (payload) => emit("loveBoost", payload));
     socket.on("buildState", (payload) => emit("buildState", payload));
     socket.on("buildPatch", (payload) => emit("buildPatch", payload));
+    socket.on("voiceSignal", (payload) => emit("voiceSignal", payload));
+    socket.on("voiceState", (payload) => emit("voiceState", payload));
 
     function emit(type, payload) {
         const set = listeners.get(type);
@@ -57,6 +59,12 @@ export function createSocketAdapter(socket) {
         },
         buildAction(data) {
             socket.emit("buildAction", data);
+        },
+        voiceSignal(data) {
+            socket.emit("voiceSignal", data);
+        },
+        voiceState(data) {
+            socket.emit("voiceState", data);
         },
         setProfile(data) {
             socket.emit("setProfile", data);

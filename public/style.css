@@ -374,6 +374,27 @@ canvas {
     touch-action: manipulation;
 }
 
+#btnMicToggle {
+    position: fixed;
+    right: 60px;
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: linear-gradient(130deg, rgba(99, 124, 255, 0.9), rgba(92, 208, 192, 0.9));
+    color: #fff;
+    font-size: 18px;
+    display: none;
+    pointer-events: auto;
+    touch-action: manipulation;
+}
+
+#btnMicToggle.active {
+    background: linear-gradient(130deg, rgba(235, 77, 88, 0.94), rgba(255, 136, 84, 0.94));
+    box-shadow: 0 0 0 3px rgba(255, 108, 138, 0.2);
+}
+
 #chatForm {
     position: fixed;
     left: 50%;
@@ -534,6 +555,12 @@ canvas {
     #btnChatToggle {
         display: block;
         right: 8px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+
+    #btnMicToggle {
+        display: block;
+        right: 56px;
         bottom: calc(10px + env(safe-area-inset-bottom));
     }
 

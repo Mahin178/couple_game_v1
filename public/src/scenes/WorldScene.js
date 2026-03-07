@@ -169,6 +169,11 @@ export class WorldScene extends Phaser.Scene {
         this.lastUiHintKey = "";
         this.currentEnterAction = "";
         this.targetZoom = 1;
+        this.voiceEnabled = false;
+        this.voiceStream = null;
+        this.voicePeers = new Map();
+        this.remoteAudio = new Map();
+        this.voiceStates = new Map();
 
         this.aiRefreshMs = AI_REFRESH_MS;
         this.resourceCullMs = RESOURCE_CULL_MS;
@@ -867,6 +872,9 @@ export class WorldScene extends Phaser.Scene {
             this.playerList = players;
             this.syncRemotePlayers();
             this.updateBondMeter();
+            if (this.voiceEnabled) {
+                this.ensureVoiceConnections();
+            }
         });
 
         this.unsubChat = this.socketAdapter.on("chat", ({ id, message }) => {
@@ -925,6 +933,22 @@ export class WorldScene extends Phaser.Scene {
 
             if (payload.action === "remove") {
                 this.removeBuildBlock(payload.gridX, payload.gridY);
+            }
+        });
+
+        this.unsubVoiceSignal = this.socketAdapter.on("voiceSignal", (payload) => {
+            this.handleVoiceSignal(payload).catch(() => {});
+        });
+
+        this.unsubVoiceState = this.socketAdapter.on("voiceState", ({ id, enabled }) => {
+            if (!id) {
+                return;
+            }
+            this.voiceStates.set(id, Boolean(enabled));
+            if (!enabled) {
+                this.closeVoicePeer(id);
+            } else if (this.voiceEnabled) {
+                this.ensureVoiceConnection(id).catch(() => {});
             }
         });
     }
@@ -1056,8 +1080,161 @@ export class WorldScene extends Phaser.Scene {
             this.mobileChatHandler = () => this.setMobileChatOpen(!this.mobileChatOpen);
             this.hud.chatToggle.addEventListener("click", this.mobileChatHandler);
         }
+        if (this.hud.micToggle) {
+            this.mobileMicHandler = () => {
+                this.toggleVoiceChat().catch(() => {});
+            };
+            this.hud.micToggle.addEventListener("click", this.mobileMicHandler);
+        }
 
         this.setMobileChatOpen(false);
+    }
+
+    async toggleVoiceChat() {
+        if (this.voiceEnabled) {
+            this.stopVoiceChat();
+            return;
+        }
+
+        try {
+            this.voiceStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                },
+                video: false
+            });
+        } catch (_error) {
+            this.setMission("Microphone permission is required for voice chat.");
+            return;
+        }
+
+        this.voiceEnabled = true;
+        this.hud.setMicActive(true);
+        this.socketAdapter.voiceState({ enabled: true });
+        await this.ensureVoiceConnections();
+    }
+
+    stopVoiceChat() {
+        this.voiceEnabled = false;
+        this.hud.setMicActive(false);
+        for (const track of this.voiceStream?.getTracks() || []) {
+            track.stop();
+        }
+        this.voiceStream = null;
+        for (const id of Array.from(this.voicePeers.keys())) {
+            this.closeVoicePeer(id);
+        }
+        this.socketAdapter.voiceState({ enabled: false });
+    }
+
+    async ensureVoiceConnections() {
+        const ids = Object.keys(this.playerList).filter((id) => id && id !== this.socketAdapter.id);
+        for (const id of ids) {
+            await this.ensureVoiceConnection(id);
+        }
+    }
+
+    async ensureVoiceConnection(peerId) {
+        if (!this.voiceEnabled || !this.voiceStream || !peerId || this.voicePeers.has(peerId)) {
+            return;
+        }
+
+        const pc = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        });
+
+        for (const track of this.voiceStream.getTracks()) {
+            pc.addTrack(track, this.voiceStream);
+        }
+
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                this.socketAdapter.voiceSignal({ toId: peerId, candidate: event.candidate });
+            }
+        };
+
+        pc.ontrack = (event) => {
+            const stream = event.streams?.[0];
+            if (!stream) {
+                return;
+            }
+            let audio = this.remoteAudio.get(peerId);
+            if (!audio) {
+                audio = document.createElement("audio");
+                audio.autoplay = true;
+                audio.playsInline = true;
+                audio.dataset.peerId = peerId;
+                audio.style.display = "none";
+                document.body.appendChild(audio);
+                this.remoteAudio.set(peerId, audio);
+            }
+            audio.srcObject = stream;
+        };
+
+        pc.onconnectionstatechange = () => {
+            if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
+                this.closeVoicePeer(peerId);
+            }
+        };
+
+        this.voicePeers.set(peerId, pc);
+
+        if (this.socketAdapter.id && this.socketAdapter.id < peerId) {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            this.socketAdapter.voiceSignal({ toId: peerId, description: pc.localDescription });
+        }
+    }
+
+    async handleVoiceSignal({ fromId, description, candidate }) {
+        if (!fromId) {
+            return;
+        }
+
+        if (!this.voiceEnabled) {
+            return;
+        }
+
+        await this.ensureVoiceConnection(fromId);
+        const pc = this.voicePeers.get(fromId);
+        if (!pc) {
+            return;
+        }
+
+        if (description) {
+            await pc.setRemoteDescription(new RTCSessionDescription(description));
+            if (description.type === "offer") {
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                this.socketAdapter.voiceSignal({ toId: fromId, description: pc.localDescription });
+            }
+            return;
+        }
+
+        if (candidate) {
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (_error) {}
+        }
+    }
+
+    closeVoicePeer(peerId) {
+        const pc = this.voicePeers.get(peerId);
+        if (pc) {
+            pc.onicecandidate = null;
+            pc.ontrack = null;
+            pc.close();
+            this.voicePeers.delete(peerId);
+        }
+
+        const audio = this.remoteAudio.get(peerId);
+        if (audio) {
+            audio.srcObject = null;
+            audio.remove();
+            this.remoteAudio.delete(peerId);
+        }
     }
 
     setMobileChatOpen(open) {
@@ -2448,6 +2625,9 @@ export class WorldScene extends Phaser.Scene {
 
     triggerGameOver(title = "You did not survive.", reason = "Restart and protect each other.") {
         this.isGameOver = true;
+        if (this.voiceEnabled) {
+            this.stopVoiceChat();
+        }
         this.hud.setGameOverMessage(title, reason);
         this.hud.showGameOver(true);
         this.setMission(reason);
@@ -2872,7 +3052,7 @@ export class WorldScene extends Phaser.Scene {
         const mode = this.isBuildMode ? "ON" : "OFF";
         const text =
             `Build ${mode} | ${label} ${this.inventory[this.selectedMaterial]} | ` +
-            `Hunger ${Math.round(this.hunger)} | Bites ${this.bitesTaken}/2 | Keys B/F/G/R/E/J/Q/H`;
+            `Health ${Math.round(this.health)} | Hunger ${Math.round(this.hunger)} | Bites ${this.bitesTaken}/4 | Keys B/F/G/R/E/J/[ ]/H`;
         this.hud.setBuildInfo(text);
     }
 
@@ -3035,6 +3215,12 @@ export class WorldScene extends Phaser.Scene {
         if (this.unsubConnect) {
             this.unsubConnect();
         }
+        if (this.unsubVoiceSignal) {
+            this.unsubVoiceSignal();
+        }
+        if (this.unsubVoiceState) {
+            this.unsubVoiceState();
+        }
 
         if (this.chatForm && this.chatHandler) {
             this.chatForm.removeEventListener("submit", this.chatHandler);
@@ -3067,6 +3253,9 @@ export class WorldScene extends Phaser.Scene {
         if (this.hud.chatToggle && this.mobileChatHandler) {
             this.hud.chatToggle.removeEventListener("click", this.mobileChatHandler);
         }
+        if (this.hud.micToggle && this.mobileMicHandler) {
+            this.hud.micToggle.removeEventListener("click", this.mobileMicHandler);
+        }
 
         for (const { button, handler } of this.emojiHandlers || []) {
             button.removeEventListener("click", handler);
@@ -3087,6 +3276,7 @@ export class WorldScene extends Phaser.Scene {
             p.destroy();
         }
         this.players.clear();
+        this.stopVoiceChat();
 
         if (this.pointerDownHandler) {
             this.input.off("pointerdown", this.pointerDownHandler);

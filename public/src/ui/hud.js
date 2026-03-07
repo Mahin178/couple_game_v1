@@ -6,6 +6,7 @@ export function createHudControls() {
     const loveStatus = document.getElementById("loveStatus");
     const authorTag = document.getElementById("authorTag");
     const chatToggle = document.getElementById("btnChatToggle");
+    const micToggle = document.getElementById("btnMicToggle");
     const materialCounts = {
         brick: document.getElementById("matBrickCount"),
         wood: document.getElementById("matWoodCount"),
@@ -62,6 +63,7 @@ export function createHudControls() {
         emojiButtons,
         authorTag,
         chatToggle,
+        micToggle,
         materialCounts,
         miniMapWrap,
         miniMapCanvas,
@@ -85,6 +87,13 @@ export function createHudControls() {
         },
         setMission(text) {
             return text;
+        },
+        setMicActive(active) {
+            if (!micToggle) {
+                return;
+            }
+            micToggle.classList.toggle("active", Boolean(active));
+            micToggle.textContent = active ? "🔴" : "🎤";
         },
         setBuildModeLabel(text) {
             if (buttons.buildMode) {

@@ -319,11 +319,32 @@ io.on("connection", (socket) => {
         }
     });
 
+    socket.on("voiceSignal", (data) => {
+        const toId = data?.toId;
+        if (!toId || !players[toId]) {
+            return;
+        }
+
+        io.to(toId).emit("voiceSignal", {
+            fromId: socket.id,
+            description: data?.description || null,
+            candidate: data?.candidate || null
+        });
+    });
+
+    socket.on("voiceState", (data) => {
+        io.emit("voiceState", {
+            id: socket.id,
+            enabled: Boolean(data?.enabled)
+        });
+    });
+
     socket.on("disconnect", () => {
         clearPlayerFromVehicles(socket.id);
         delete players[socket.id];
         io.emit("updatePlayers", players);
         io.emit("vehicleState", vehiclePayload());
+        io.emit("voiceState", { id: socket.id, enabled: false });
     });
 });
 
