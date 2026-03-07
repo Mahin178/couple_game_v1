@@ -50,6 +50,13 @@ const RESOURCE_CULL_MS = 220;
 const COW_ACTIVE_RANGE = 1500;
 const ZOMBIE_ACTIVE_RANGE = 1800;
 const DRAW_CULL_MARGIN = 280;
+const MAX_HEALTH = 100;
+const ZOMBIE_BITE_DAMAGE = 25;
+const HUNGER_DAMAGE = 5;
+const ZOMBIE_BITE_INTERVAL_MS = 500;
+const ZOOM_MIN = 0.82;
+const ZOOM_MAX = 1.52;
+const ZOOM_STEP = 0.1;
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -134,8 +141,10 @@ export class WorldScene extends Phaser.Scene {
 
         this.bitesTaken = 0;
         this.lastBiteTime = 0;
+        this.health = MAX_HEALTH;
         this.hunger = 100;
         this.lastHungerTick = 0;
+        this.pendingDeathReason = "";
 
         this.lastEmitTime = 0;
         this.lastDriveEmitTime = 0;
@@ -159,6 +168,7 @@ export class WorldScene extends Phaser.Scene {
         this.lastBackpackText = "";
         this.lastUiHintKey = "";
         this.currentEnterAction = "";
+        this.targetZoom = 1;
 
         this.aiRefreshMs = AI_REFRESH_MS;
         this.resourceCullMs = RESOURCE_CULL_MS;
@@ -170,7 +180,7 @@ export class WorldScene extends Phaser.Scene {
     create() {
         this.hud = createHudControls();
         this.hud.showGameOver(false);
-        this.hud.setLove(68);
+        this.hud.setLove(this.health);
         this.setMission("Safe zone ready. Open the gate, collect resources, and return alive.");
 
         this.createMap();
@@ -194,6 +204,7 @@ export class WorldScene extends Phaser.Scene {
         this.bindActionButtons();
         this.bindDrivePadButtons();
         this.bindRestartButton();
+        this.bindZoomButtons();
         this.bindMobileUi();
         this.bindMapUi();
 
@@ -204,6 +215,18 @@ export class WorldScene extends Phaser.Scene {
         this.updateBackpackInfo();
 
         this.events.once("shutdown", () => this.cleanup());
+    }
+
+    bindZoomButtons() {
+        this.zoomInHandler = () => this.adjustZoom(1);
+        this.zoomOutHandler = () => this.adjustZoom(-1);
+        this.hud.zoomInButton?.addEventListener("click", this.zoomInHandler);
+        this.hud.zoomOutButton?.addEventListener("click", this.zoomOutHandler);
+    }
+
+    adjustZoom(direction) {
+        this.targetZoom = clamp(this.targetZoom + direction * ZOOM_STEP, ZOOM_MIN, ZOOM_MAX);
+        this.cameras.main.setZoom(this.targetZoom);
     }
 
     setMission(text) {
@@ -745,7 +768,9 @@ export class WorldScene extends Phaser.Scene {
             collect: Phaser.Input.Keyboard.KeyCodes.R,
             eat: Phaser.Input.Keyboard.KeyCodes.E,
             cycleWeapon: Phaser.Input.Keyboard.KeyCodes.Q,
-            toggleGate: Phaser.Input.Keyboard.KeyCodes.H
+            toggleGate: Phaser.Input.Keyboard.KeyCodes.H,
+            zoomIn: Phaser.Input.Keyboard.KeyCodes.CLOSE_BRACKET,
+            zoomOut: Phaser.Input.Keyboard.KeyCodes.OPEN_BRACKET
         });
 
         this.input.keyboard.disableGlobalCapture();
@@ -817,8 +842,9 @@ export class WorldScene extends Phaser.Scene {
             this.physics.add.collider(this.localPlayer.sprite, this.buildBlockColliders);
         }
 
-        this.cameras.main.setZoom(this.isTouchDevice ? 1.14 : 1.24);
-        this.cameras.main.startFollow(this.localPlayer.sprite, true, 0.16, 0.16);
+        this.targetZoom = this.isTouchDevice ? 1.12 : 1.22;
+        this.cameras.main.setZoom(this.targetZoom);
+        this.cameras.main.startFollow(this.localPlayer.sprite, true, 1, 1);
         this.cameras.main.followOffset.set(0, 0);
     }
 
@@ -1274,6 +1300,12 @@ export class WorldScene extends Phaser.Scene {
         if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.toggleGate)) {
             this.toggleGate();
         }
+        if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.zoomIn)) {
+            this.adjustZoom(1);
+        }
+        if (!typingInChat && Phaser.Input.Keyboard.JustDown(this.keys.zoomOut)) {
+            this.adjustZoom(-1);
+        }
 
         if (!this.isGameOver) {
             if (this.getDrivingVehicleId()) {
@@ -1390,19 +1422,9 @@ export class WorldScene extends Phaser.Scene {
         const targetVx = vec.x * PLAYER_SPEED;
         const targetVy = vec.y * PLAYER_SPEED;
         const moving = vec.lengthSq() > 0.01;
-        const lerpRate = moving ? 12 : 16;
-        const blend = 1 - Math.exp(-lerpRate * dt);
-        body.velocity.x = Phaser.Math.Linear(body.velocity.x, targetVx, blend);
-        body.velocity.y = Phaser.Math.Linear(body.velocity.y, targetVy, blend);
-        if (moving && body.velocity.lengthSq() < 400) {
-            body.velocity.x = Phaser.Math.Linear(body.velocity.x, targetVx, 0.58);
-            body.velocity.y = Phaser.Math.Linear(body.velocity.y, targetVy, 0.58);
-        }
-        if (Math.abs(body.velocity.x) < 2) {
-            body.velocity.x = 0;
-        }
-        if (Math.abs(body.velocity.y) < 2) {
-            body.velocity.y = 0;
+        body.setVelocity(targetVx, targetVy);
+        if (!moving) {
+            body.setVelocity(0, 0);
         }
 
         const velocitySq = body.velocity.lengthSq();
@@ -1811,13 +1833,15 @@ export class WorldScene extends Phaser.Scene {
 
             if (!this.isGameOver && localPos && !this.isInsideSafeZone(localPos.x, localPos.y, 8)) {
                 const dLocal = Phaser.Math.Distance.Between(zombie.x, zombie.y, localPos.x, localPos.y);
-                if (dLocal < 24 && time - this.lastBiteTime > 1300) {
+                if (dLocal < 24 && time - this.lastBiteTime > ZOMBIE_BITE_INTERVAL_MS) {
                     this.lastBiteTime = time;
                     this.bitesTaken += 1;
-                    this.setMission(`Zombie bite ${this.bitesTaken}/2. Retreat to safe zone now.`);
+                    this.health = clamp(this.health - ZOMBIE_BITE_DAMAGE, 0, MAX_HEALTH);
+                    this.pendingDeathReason = "Zombies reduced your health to zero.";
+                    this.setMission(`Zombie bite ${this.bitesTaken}/4. Health ${Math.round(this.health)}%.`);
                     this.playTone({ frequency: 120, slideTo: 70, duration: 0.12, type: "square", volume: 0.06 });
-                    if (this.bitesTaken >= 2) {
-                        this.triggerGameOver("You took two zombie bites.");
+                    if (this.health <= 0) {
+                        this.triggerGameOver("You did not survive.", this.pendingDeathReason);
                         return;
                     }
                 }
@@ -2145,9 +2169,11 @@ export class WorldScene extends Phaser.Scene {
 
         this.inventory[chosen] -= 1;
         const gainMap = { meat: 30, apple: 17, strawberry: 12, blueberry: 10 };
+        const healthGainMap = { meat: 18, apple: 9, strawberry: 7, blueberry: 6 };
         this.hunger = clamp(this.hunger + (gainMap[chosen] || 12), 0, 100);
+        this.health = clamp(this.health + (healthGainMap[chosen] || 6), 0, MAX_HEALTH);
         this.playTone({ frequency: 300, slideTo: 420, duration: 0.07, type: "triangle", volume: 0.045 });
-        this.setMission(`Ate ${chosen}. Hunger restored.`);
+        this.setMission(`Ate ${chosen}. Hunger and health restored.`);
         this.updateBackpackInfo();
     }
 
@@ -2164,8 +2190,12 @@ export class WorldScene extends Phaser.Scene {
             this.hunger = clamp(this.hunger - decay, 0, 100);
 
             if (this.hunger <= 0) {
-                this.triggerGameOver("You starved. Keep food in your backpack.");
-                return;
+                this.health = clamp(this.health - HUNGER_DAMAGE, 0, MAX_HEALTH);
+                this.pendingDeathReason = "Hunger reduced your health to zero.";
+                if (this.health <= 0) {
+                    this.triggerGameOver("You starved.", this.pendingDeathReason);
+                    return;
+                }
             }
         }
 
@@ -2177,7 +2207,9 @@ export class WorldScene extends Phaser.Scene {
             .map((name) => [name, this.inventory[name] || 0])
             .filter(([, amount]) => amount > 0)
             .map(([name, amount]) => `${name}: ${amount}`);
-        const backpackText = entries.length > 0 ? entries.join(" | ") : "Backpack empty";
+        const backpackText = entries.length > 0
+            ? `${entries.join(" | ")} | HP ${Math.round(this.health)} | Hunger ${Math.round(this.hunger)}`
+            : `Backpack empty | HP ${Math.round(this.health)} | Hunger ${Math.round(this.hunger)}`;
 
         if (this.lastBackpackText === backpackText) {
             return;
@@ -2414,8 +2446,9 @@ export class WorldScene extends Phaser.Scene {
         this.setMission("You left the car.");
     }
 
-    triggerGameOver(reason = "You did not survive.") {
+    triggerGameOver(title = "You did not survive.", reason = "Restart and protect each other.") {
         this.isGameOver = true;
+        this.hud.setGameOverMessage(title, reason);
         this.hud.showGameOver(true);
         this.setMission(reason);
         this.drivePadVector.x = 0;
@@ -2914,7 +2947,7 @@ export class WorldScene extends Phaser.Scene {
         const target = followVehicleId ? this.vehicleSprites[followVehicleId]?.container : this.localPlayer.sprite;
 
         if (target && this.cameras.main._follow !== target) {
-            this.cameras.main.startFollow(target, true, 0.16, 0.16);
+            this.cameras.main.startFollow(target, true, 1, 1);
             this.cameras.main.followOffset.set(0, 0);
         }
     }
@@ -2980,10 +3013,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     updateBondMeter() {
-        const base = 100 - this.bitesTaken * 50;
-        const hungerPenalty = Phaser.Math.Clamp((100 - this.hunger) * 0.35, 0, 35);
-        const health = clamp(base - hungerPenalty, 0, 100);
-        this.hud.setLove(Math.round(health));
+        this.hud.setLove(Math.round(this.health));
     }
 
     cleanup() {
@@ -3018,6 +3048,12 @@ export class WorldScene extends Phaser.Scene {
 
         if (this.hud.restartButton && this.restartHandler) {
             this.hud.restartButton.removeEventListener("click", this.restartHandler);
+        }
+        if (this.hud.zoomInButton && this.zoomInHandler) {
+            this.hud.zoomInButton.removeEventListener("click", this.zoomInHandler);
+        }
+        if (this.hud.zoomOutButton && this.zoomOutHandler) {
+            this.hud.zoomOutButton.removeEventListener("click", this.zoomOutHandler);
         }
         if (this.hud.mobileBuildAction && this.mobileBuildHandler) {
             this.hud.mobileBuildAction.removeEventListener("click", this.mobileBuildHandler);

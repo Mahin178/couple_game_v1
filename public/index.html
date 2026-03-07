@@ -21,6 +21,10 @@
                 <div id="loveMeter"><div id="loveFill"></div></div>
             </div>
             <div id="loveStatus">Love Status: 100%</div>
+            <div id="zoomControls">
+                <button id="btnZoomOut" type="button" aria-label="Zoom out">-</button>
+                <button id="btnZoomIn" type="button" aria-label="Zoom in">+</button>
+            </div>
         </div>
         <button id="miniMapWrap" type="button" aria-label="Open map">
             <canvas id="miniMapCanvas" width="168" height="168"></canvas>
@@ -89,7 +93,8 @@
 
         <div id="gameOverOverlay" aria-hidden="true">
             <div id="gameOverCard">
-                <h2>You did not survive. Restart and protect each other.</h2>
+                <h2 id="gameOverTitle">You did not survive.</h2>
+                <p id="gameOverReason">Restart and protect each other.</p>
                 <button id="btnRestartGame" type="button">Restart</button>
             </div>
         </div>

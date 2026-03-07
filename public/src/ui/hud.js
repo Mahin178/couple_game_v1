@@ -21,6 +21,8 @@ export function createHudControls() {
     const fullMapModal = document.getElementById("fullMapModal");
     const fullMapCanvas = document.getElementById("fullMapCanvas");
     const closeFullMapButton = document.getElementById("btnCloseFullMap");
+    const zoomInButton = document.getElementById("btnZoomIn");
+    const zoomOutButton = document.getElementById("btnZoomOut");
     const buttons = {
         drive: document.getElementById("btnDrive"),
         sit: document.getElementById("btnSit"),
@@ -47,6 +49,8 @@ export function createHudControls() {
         right: document.getElementById("driveRight")
     };
     const gameOverOverlay = document.getElementById("gameOverOverlay");
+    const gameOverTitle = document.getElementById("gameOverTitle");
+    const gameOverReason = document.getElementById("gameOverReason");
     const restartButton = document.getElementById("btnRestartGame");
     const actionState = {};
     let drivePadVisible = false;
@@ -64,6 +68,8 @@ export function createHudControls() {
         fullMapModal,
         fullMapCanvas,
         closeFullMapButton,
+        zoomInButton,
+        zoomOutButton,
         buttons,
         drivePad,
         restartButton,
@@ -139,6 +145,14 @@ export function createHudControls() {
         showGameOver(show) {
             gameOverOverlay.style.display = show ? "flex" : "none";
             gameOverOverlay.setAttribute("aria-hidden", show ? "false" : "true");
+        },
+        setGameOverMessage(title, reason) {
+            if (gameOverTitle) {
+                gameOverTitle.textContent = title || "You did not survive.";
+            }
+            if (gameOverReason) {
+                gameOverReason.textContent = reason || "";
+            }
         },
         setBuildInfo(text) {
             if (buildInfo) {
