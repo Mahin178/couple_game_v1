@@ -15,6 +15,8 @@ export function createSocketAdapter(socket) {
     socket.on("voiceSignal", (payload) => emit("voiceSignal", payload));
     socket.on("voiceState", (payload) => emit("voiceState", payload));
     socket.on("voiceStates", (payload) => emit("voiceStates", payload));
+    socket.on("hearState", (payload) => emit("hearState", payload));
+    socket.on("hearStates", (payload) => emit("hearStates", payload));
 
     function emit(type, payload) {
         const set = listeners.get(type);
@@ -66,6 +68,9 @@ export function createSocketAdapter(socket) {
         },
         voiceState(data) {
             socket.emit("voiceState", data);
+        },
+        hearState(data) {
+            socket.emit("hearState", data);
         },
         setProfile(data) {
             socket.emit("setProfile", data);

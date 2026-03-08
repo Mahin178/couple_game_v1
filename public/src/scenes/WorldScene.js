@@ -175,6 +175,7 @@ export class WorldScene extends Phaser.Scene {
         this.voicePeers = new Map();
         this.remoteAudio = new Map();
         this.voiceStates = new Map();
+        this.hearStates = new Map();
         this.pendingVoiceCandidates = new Map();
         this.rtcIceServers = [{ urls: "stun:stun.l.google.com:19302" }];
         this.rtcIceTransportPolicy = "all";
@@ -964,6 +965,14 @@ export class WorldScene extends Phaser.Scene {
             this.refreshVoiceUi();
         });
 
+        this.unsubHearStates = this.socketAdapter.on("hearStates", (payload) => {
+            const states = payload && typeof payload === "object" ? payload : {};
+            for (const [id, enabled] of Object.entries(states)) {
+                this.hearStates.set(id, Boolean(enabled));
+            }
+            this.refreshVoiceUi();
+        });
+
         this.unsubVoiceState = this.socketAdapter.on("voiceState", ({ id, enabled }) => {
             if (!id || id === this.socketAdapter.id) {
                 return;
@@ -974,6 +983,14 @@ export class WorldScene extends Phaser.Scene {
             } else {
                 this.ensureVoiceConnection(id).catch(() => {});
             }
+            this.refreshVoiceUi();
+        });
+
+        this.unsubHearState = this.socketAdapter.on("hearState", ({ id, enabled }) => {
+            if (!id || id === this.socketAdapter.id) {
+                return;
+            }
+            this.hearStates.set(id, Boolean(enabled));
             this.refreshVoiceUi();
         });
     }
@@ -1156,6 +1173,7 @@ export class WorldScene extends Phaser.Scene {
         this.ensureAudioReady();
         this.resumeRemoteAudioPlayback();
         this.hud.showVoiceUnlockPrompt(false);
+        this.socketAdapter.hearState({ enabled: true });
         this.refreshVoiceUi();
     }
 
@@ -1205,7 +1223,6 @@ export class WorldScene extends Phaser.Scene {
 
     stopVoiceChat() {
         this.voiceEnabled = false;
-        this.isListeningToVoice = false;
         this.clearVoiceRetry();
         this.connectedVoicePeers.clear();
         this.refreshVoiceUi();
@@ -1433,9 +1450,12 @@ export class WorldScene extends Phaser.Scene {
         const hasRemoteSpeaker = Array.from(this.voiceStates.entries()).some(
             ([id, enabled]) => id !== this.socketAdapter.id && Boolean(enabled)
         );
+        const hasRemoteListener = Array.from(this.hearStates.entries()).some(
+            ([id, enabled]) => id !== this.socketAdapter.id && Boolean(enabled)
+        );
         this.hud.setHearState({
             available: hasRemoteSpeaker,
-            listening: this.isListeningToVoice || this.connectedVoicePeers.size > 0
+            listening: hasRemoteSpeaker && this.isListeningToVoice
         });
 
         if (!this.voiceEnabled) {
@@ -1444,7 +1464,7 @@ export class WorldScene extends Phaser.Scene {
             return;
         }
 
-        if (this.connectedVoicePeers.size > 0) {
+        if (hasRemoteListener && this.connectedVoicePeers.size > 0) {
             this.hud.setMicConnecting(false);
             this.hud.setMicActive(true);
             return;
@@ -3477,6 +3497,12 @@ export class WorldScene extends Phaser.Scene {
         if (this.unsubVoiceStates) {
             this.unsubVoiceStates();
         }
+        if (this.unsubHearState) {
+            this.unsubHearState();
+        }
+        if (this.unsubHearStates) {
+            this.unsubHearStates();
+        }
 
         if (this.chatForm && this.chatHandler) {
             this.chatForm.removeEventListener("submit", this.chatHandler);
@@ -3512,6 +3538,7 @@ export class WorldScene extends Phaser.Scene {
         if (this.hud.micToggle && this.voiceToggleHandler) {
             this.hud.micToggle.removeEventListener("click", this.voiceToggleHandler);
         }
+        this.socketAdapter.hearState({ enabled: false });
         this.hud.setVoiceUnlockPromptHandler(null);
         this.hud.setHearToggleHandler(null);
         if (this.voiceGestureHandler) {

@@ -72,6 +72,7 @@ const vehicles = {
 };
 const buildBlocks = {};
 const voiceStates = {};
+const hearStates = {};
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -138,6 +139,7 @@ io.on("connection", (socket) => {
     socket.emit("vehicleState", vehiclePayload());
     socket.emit("buildState", buildStatePayload());
     socket.emit("voiceStates", voiceStates);
+    socket.emit("hearStates", hearStates);
 
     socket.on("setProfile", (data) => {
         const player = players[socket.id];
@@ -372,13 +374,20 @@ io.on("connection", (socket) => {
         io.emit("voiceState", { id: socket.id, enabled: voiceStates[socket.id] });
     });
 
+    socket.on("hearState", (data) => {
+        hearStates[socket.id] = Boolean(data?.enabled);
+        io.emit("hearState", { id: socket.id, enabled: hearStates[socket.id] });
+    });
+
     socket.on("disconnect", () => {
         clearPlayerFromVehicles(socket.id);
         delete players[socket.id];
         delete voiceStates[socket.id];
+        delete hearStates[socket.id];
         io.emit("updatePlayers", players);
         io.emit("vehicleState", vehiclePayload());
         io.emit("voiceState", { id: socket.id, enabled: false });
+        io.emit("hearState", { id: socket.id, enabled: false });
     });
 });
 
