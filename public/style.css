@@ -402,6 +402,28 @@ canvas {
     box-shadow: 0 0 0 3px rgba(255, 108, 138, 0.2);
 }
 
+#btnMicToggle.connecting {
+    background: linear-gradient(130deg, rgba(224, 164, 82, 0.96), rgba(244, 200, 94, 0.96));
+    box-shadow: 0 0 0 3px rgba(255, 204, 102, 0.18);
+}
+
+#voiceUnlockPrompt {
+    position: fixed;
+    right: 12px;
+    bottom: calc(124px + env(safe-area-inset-bottom));
+    display: none;
+    z-index: 1201;
+    pointer-events: auto;
+    border: 1px solid rgba(255, 240, 191, 0.7);
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: linear-gradient(130deg, rgba(207, 128, 56, 0.95), rgba(241, 187, 86, 0.96));
+    color: #fff8e8;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
 #chatForm {
     position: fixed;
     left: 50%;
@@ -573,6 +595,14 @@ canvas {
         display: block;
         right: 56px;
         bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+
+    #voiceUnlockPrompt {
+        right: 8px;
+        bottom: calc(62px + env(safe-area-inset-bottom));
+        max-width: 140px;
+        font-size: 12px;
+        padding: 9px 10px;
     }
 
     #miniMapWrap {

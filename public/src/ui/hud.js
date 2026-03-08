@@ -7,6 +7,7 @@ export function createHudControls() {
     const authorTag = document.getElementById("authorTag");
     const chatToggle = document.getElementById("btnChatToggle");
     const micToggle = document.getElementById("btnMicToggle");
+    const voiceUnlockPrompt = document.getElementById("voiceUnlockPrompt");
     const materialCounts = {
         brick: document.getElementById("matBrickCount"),
         wood: document.getElementById("matWoodCount"),
@@ -95,10 +96,35 @@ export function createHudControls() {
             if (!micToggle) {
                 return;
             }
+            micToggle.classList.remove("connecting");
             micToggle.classList.toggle("active", Boolean(active));
             micToggle.textContent = active ? "🔴" : "🎤";
             micToggle.setAttribute("aria-label", active ? "Turn microphone off" : "Turn microphone on");
             micToggle.title = active ? "Turn microphone off" : "Turn microphone on";
+        },
+        setMicConnecting(connecting) {
+            if (!micToggle) {
+                return;
+            }
+            micToggle.classList.toggle("connecting", Boolean(connecting));
+            if (connecting) {
+                micToggle.classList.remove("active");
+                micToggle.textContent = "⋯";
+                micToggle.setAttribute("aria-label", "Connecting voice chat");
+                micToggle.title = "Connecting voice chat";
+            }
+        },
+        showVoiceUnlockPrompt(show) {
+            if (!voiceUnlockPrompt) {
+                return;
+            }
+            voiceUnlockPrompt.style.display = show ? "block" : "none";
+        },
+        setVoiceUnlockPromptHandler(handler) {
+            if (!voiceUnlockPrompt) {
+                return;
+            }
+            voiceUnlockPrompt.onclick = handler || null;
         },
         setBuildModeLabel(text) {
             if (buttons.buildMode) {

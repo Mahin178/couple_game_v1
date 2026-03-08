@@ -177,7 +177,9 @@ export class WorldScene extends Phaser.Scene {
         this.voiceStates = new Map();
         this.pendingVoiceCandidates = new Map();
         this.rtcIceServers = [{ urls: "stun:stun.l.google.com:19302" }];
+        this.rtcIceTransportPolicy = "all";
         this.hasVoiceGesture = false;
+        this.connectedVoicePeers = new Set();
 
         this.aiRefreshMs = AI_REFRESH_MS;
         this.resourceCullMs = RESOURCE_CULL_MS;
@@ -225,6 +227,8 @@ export class WorldScene extends Phaser.Scene {
 
         this.updateBuildInfoText();
         this.updateBackpackInfo();
+        this.hud.setVoiceUnlockPromptHandler(() => this.unlockVoicePlayback());
+        this.refreshVoiceUi();
 
         this.events.once("shutdown", () => this.cleanup());
     }
@@ -980,6 +984,9 @@ export class WorldScene extends Phaser.Scene {
             if (Array.isArray(payload?.iceServers) && payload.iceServers.length > 0) {
                 this.rtcIceServers = payload.iceServers;
             }
+            if (payload?.iceTransportPolicy === "relay" || payload?.iceTransportPolicy === "all") {
+                this.rtcIceTransportPolicy = payload.iceTransportPolicy;
+            }
         } catch (_error) {}
     }
 
@@ -1143,6 +1150,7 @@ export class WorldScene extends Phaser.Scene {
         this.hasVoiceGesture = true;
         this.ensureAudioReady();
         this.resumeRemoteAudioPlayback();
+        this.hud.showVoiceUnlockPrompt(false);
     }
 
     resumeRemoteAudioPlayback() {
@@ -1177,15 +1185,18 @@ export class WorldScene extends Phaser.Scene {
         }
 
         this.voiceEnabled = true;
-        this.hud.setMicActive(true);
+        this.refreshVoiceUi();
         this.socketAdapter.voiceState({ enabled: true });
         await this.syncVoiceTracksToPeers();
         await this.ensureVoiceConnections();
+        this.scheduleVoiceRetry();
     }
 
     stopVoiceChat() {
         this.voiceEnabled = false;
-        this.hud.setMicActive(false);
+        this.clearVoiceRetry();
+        this.connectedVoicePeers.clear();
+        this.refreshVoiceUi();
         for (const track of this.voiceStream?.getTracks() || []) {
             track.stop();
         }
@@ -1249,7 +1260,8 @@ export class WorldScene extends Phaser.Scene {
         }
 
         const pc = new RTCPeerConnection({
-            iceServers: this.rtcIceServers
+            iceServers: this.rtcIceServers,
+            iceTransportPolicy: this.rtcIceTransportPolicy
         });
 
         if (this.voiceStream) {
@@ -1286,12 +1298,26 @@ export class WorldScene extends Phaser.Scene {
             audio.volume = 1;
             if (this.hasVoiceGesture) {
                 audio.play().catch(() => {});
+            } else {
+                this.hud.showVoiceUnlockPrompt(true);
             }
         };
 
         pc.onconnectionstatechange = () => {
+            if (pc.connectionState === "connected") {
+                this.connectedVoicePeers.add(peerId);
+                this.clearVoiceRetry();
+                this.refreshVoiceUi();
+                return;
+            }
+
             if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
+                this.connectedVoicePeers.delete(peerId);
                 this.closeVoicePeer(peerId);
+                if (this.voiceEnabled) {
+                    this.scheduleVoiceRetry();
+                    this.refreshVoiceUi();
+                }
             }
         };
 
@@ -1380,6 +1406,8 @@ export class WorldScene extends Phaser.Scene {
             this.voicePeers.delete(peerId);
         }
         this.pendingVoiceCandidates.delete(peerId);
+        this.connectedVoicePeers.delete(peerId);
+        this.refreshVoiceUi();
 
         const audio = this.remoteAudio.get(peerId);
         if (audio) {
@@ -1387,6 +1415,45 @@ export class WorldScene extends Phaser.Scene {
             audio.remove();
             this.remoteAudio.delete(peerId);
         }
+    }
+
+    refreshVoiceUi() {
+        if (!this.voiceEnabled) {
+            this.hud.setMicActive(false);
+            this.hud.setMicConnecting(false);
+            return;
+        }
+
+        if (this.connectedVoicePeers.size > 0) {
+            this.hud.setMicConnecting(false);
+            this.hud.setMicActive(true);
+            return;
+        }
+
+        this.hud.setMicActive(false);
+        this.hud.setMicConnecting(true);
+    }
+
+    scheduleVoiceRetry() {
+        if (!this.voiceEnabled || this.connectedVoicePeers.size > 0 || this.voiceRetryTimer) {
+            return;
+        }
+
+        this.voiceRetryTimer = window.setInterval(() => {
+            if (!this.voiceEnabled || this.connectedVoicePeers.size > 0) {
+                this.clearVoiceRetry();
+                return;
+            }
+            this.ensureVoiceConnections().catch(() => {});
+        }, 2000);
+    }
+
+    clearVoiceRetry() {
+        if (!this.voiceRetryTimer) {
+            return;
+        }
+        window.clearInterval(this.voiceRetryTimer);
+        this.voiceRetryTimer = null;
     }
 
     setMobileChatOpen(open) {
@@ -3362,6 +3429,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     cleanup() {
+        this.clearVoiceRetry();
         if (this.unsubPlayers) {
             this.unsubPlayers();
         }
@@ -3424,6 +3492,7 @@ export class WorldScene extends Phaser.Scene {
         if (this.hud.micToggle && this.voiceToggleHandler) {
             this.hud.micToggle.removeEventListener("click", this.voiceToggleHandler);
         }
+        this.hud.setVoiceUnlockPromptHandler(null);
         if (this.voiceGestureHandler) {
             window.removeEventListener("pointerdown", this.voiceGestureHandler);
             window.removeEventListener("touchstart", this.voiceGestureHandler);
