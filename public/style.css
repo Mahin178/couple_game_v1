@@ -380,6 +380,33 @@ canvas {
     touch-action: manipulation;
 }
 
+#btnHearToggle {
+    position: fixed;
+    right: 108px;
+    bottom: calc(74px + env(safe-area-inset-bottom));
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: linear-gradient(130deg, rgba(180, 73, 73, 0.92), rgba(120, 35, 35, 0.94));
+    color: #fff;
+    font-size: 18px;
+    display: block;
+    pointer-events: auto;
+    touch-action: manipulation;
+    z-index: 1200;
+}
+
+#btnHearToggle.ready {
+    background: linear-gradient(130deg, rgba(66, 173, 108, 0.94), rgba(111, 214, 144, 0.96));
+    box-shadow: 0 0 0 3px rgba(102, 255, 166, 0.16);
+}
+
+#btnHearToggle.active {
+    background: linear-gradient(130deg, rgba(78, 123, 235, 0.94), rgba(112, 211, 233, 0.96));
+    box-shadow: 0 0 0 3px rgba(101, 183, 255, 0.18);
+}
+
 #btnMicToggle {
     position: fixed;
     right: 60px;
@@ -594,6 +621,12 @@ canvas {
     #btnMicToggle {
         display: block;
         right: 56px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+
+    #btnHearToggle {
+        display: block;
+        right: 104px;
         bottom: calc(10px + env(safe-area-inset-bottom));
     }
 

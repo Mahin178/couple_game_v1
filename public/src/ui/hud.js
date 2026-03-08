@@ -6,6 +6,7 @@ export function createHudControls() {
     const healthMeta = document.getElementById("healthMeta");
     const authorTag = document.getElementById("authorTag");
     const chatToggle = document.getElementById("btnChatToggle");
+    const hearToggle = document.getElementById("btnHearToggle");
     const micToggle = document.getElementById("btnMicToggle");
     const voiceUnlockPrompt = document.getElementById("voiceUnlockPrompt");
     const materialCounts = {
@@ -64,6 +65,7 @@ export function createHudControls() {
         emojiButtons,
         authorTag,
         chatToggle,
+        hearToggle,
         micToggle,
         materialCounts,
         miniMapWrap,
@@ -102,6 +104,19 @@ export function createHudControls() {
             micToggle.setAttribute("aria-label", active ? "Turn microphone off" : "Turn microphone on");
             micToggle.title = active ? "Turn microphone off" : "Turn microphone on";
         },
+        setHearState({ available, listening }) {
+            if (!hearToggle) {
+                return;
+            }
+
+            hearToggle.classList.toggle("ready", Boolean(available));
+            hearToggle.classList.toggle("active", Boolean(listening));
+            hearToggle.setAttribute(
+                "aria-label",
+                available ? "Hear voice chat" : "No player is speaking yet"
+            );
+            hearToggle.title = available ? "Hear voice chat" : "No player has microphone on";
+        },
         setMicConnecting(connecting) {
             if (!micToggle) {
                 return;
@@ -125,6 +140,12 @@ export function createHudControls() {
                 return;
             }
             voiceUnlockPrompt.onclick = handler || null;
+        },
+        setHearToggleHandler(handler) {
+            if (!hearToggle) {
+                return;
+            }
+            hearToggle.onclick = handler || null;
         },
         setBuildModeLabel(text) {
             if (buttons.buildMode) {
