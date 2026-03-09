@@ -63,6 +63,27 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+function seededUnit(seed) {
+    const value = Math.sin(seed * 127.1 + seed * 311.7 + 19.19) * 43758.5453123;
+    return value - Math.floor(value);
+}
+
+function deterministicOutsidePoint(seedBase) {
+    let x = 0;
+    let y = 0;
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+        const seed = seedBase + attempt * 17.37;
+        x = 120 + Math.floor(seededUnit(seed) * (WORLD_SIZE - 240));
+        y = 120 + Math.floor(seededUnit(seed + 91.7) * (WORLD_SIZE - 240));
+        if (!(x >= SAFE_MIN && x <= SAFE_MAX && y >= SAFE_MIN && y <= SAFE_MAX)) {
+            break;
+        }
+    }
+
+    return { x, y };
+}
+
 function angleToDirection(angle) {
     const deg = Phaser.Math.RadToDeg(angle);
     if (deg >= -45 && deg < 45) {
@@ -588,22 +609,76 @@ export class WorldScene extends Phaser.Scene {
         }
     }
 
+    createResourceVisual(resource, x, y) {
+        const shadow = this.add.ellipse(x, y + 12, 28, 11, 0x000000, 0.22).setDepth(840);
+        const core = this.add.container(x, y).setDepth(846);
+        const add = (shape) => {
+            core.add(shape);
+            return shape;
+        };
+
+        if (resource === "apple") {
+            add(this.add.circle(0, 0, 11, 0xd84a3e, 1));
+            add(this.add.circle(4, -2, 4, 0xf58b72, 0.45));
+            add(this.add.rectangle(1, -12, 2, 6, 0x5b3928, 1));
+            add(this.add.ellipse(6, -10, 9, 5, 0x6dbb4f, 0.95).setRotation(-0.4));
+        } else if (resource === "strawberry") {
+            add(this.add.ellipse(0, 2, 18, 22, 0xe65b77, 1));
+            add(this.add.ellipse(0, -8, 14, 8, 0x5da144, 0.98));
+            for (let i = 0; i < 6; i += 1) {
+                add(this.add.circle(-5 + (i % 3) * 5, -1 + Math.floor(i / 3) * 7, 1.2, 0xfff2b2, 0.9));
+            }
+        } else if (resource === "blueberry") {
+            add(this.add.circle(-4, 1, 6, 0x6378df, 1));
+            add(this.add.circle(4, -1, 7, 0x4f63cf, 1));
+            add(this.add.circle(1, 5, 6, 0x7088f2, 1));
+            add(this.add.circle(4, -3, 2, 0xaebeff, 0.4));
+        } else if (resource === "meat") {
+            add(this.add.ellipse(0, 0, 22, 16, 0xb94f48, 1));
+            add(this.add.ellipse(-2, -1, 14, 9, 0xcf6d65, 0.5));
+            add(this.add.rectangle(10, -1, 8, 5, 0xf1dcc2, 0.95).setRotation(0.22));
+            add(this.add.circle(13, -1, 3, 0xe7cfb0, 1));
+        } else if (resource === "brick") {
+            add(this.add.rectangle(0, 0, 20, 14, 0xaa5542, 1));
+            add(this.add.rectangle(0, -4, 20, 3, 0xc97763, 0.55));
+            add(this.add.line(0, -1, -10, 0, 10, 0, 0xf3d6c9, 0.28).setLineWidth(1, 1));
+            add(this.add.line(0, 3, -10, 0, 10, 0, 0x6f3328, 0.32).setLineWidth(1, 1));
+        } else if (resource === "wood") {
+            add(this.add.rectangle(0, 0, 24, 10, 0x94683f, 1).setRotation(-0.08));
+            add(this.add.line(0, -2, -10, 0, 10, 0, 0xc99a65, 0.32).setLineWidth(1, 1));
+            add(this.add.circle(-10, 0, 3, 0x715031, 1));
+            add(this.add.circle(10, 0, 3, 0x715031, 1));
+        } else if (resource === "glass") {
+            add(this.add.rectangle(0, 0, 18, 18, 0x93d8eb, 0.7).setRotation(0.16));
+            add(this.add.line(0, 0, -6, -6, 6, 6, 0xffffff, 0.34).setLineWidth(1, 1));
+            add(this.add.line(0, 0, 6, -6, -6, 6, 0xffffff, 0.24).setLineWidth(1, 1));
+        } else if (resource === "steel") {
+            add(this.add.rectangle(0, 0, 20, 14, 0x8e9aad, 1));
+            add(this.add.rectangle(0, -3, 20, 3, 0xcbd3df, 0.36));
+            add(this.add.circle(-5, 1, 1.2, 0xe9eef5, 0.8));
+            add(this.add.circle(5, 1, 1.2, 0xe9eef5, 0.8));
+        } else {
+            add(this.add.circle(0, 0, 10, 0xffffff, 0.9));
+        }
+
+        return { shadow, core };
+    }
+
+    createZombieVisual(zombie) {
+        zombie.shadow = this.add.ellipse(zombie.x, zombie.y + 12, 28, 10, 0x000000, 0.3).setDepth(920);
+        zombie.body = this.add.rectangle(zombie.x, zombie.y + 2, 22, 30, 0x314634).setDepth(922);
+        zombie.rib = this.add.rectangle(zombie.x, zombie.y + 1, 14, 10, 0x506b4d, 0.55).setDepth(923);
+        zombie.head = this.add.circle(zombie.x, zombie.y - 18, 9, 0xa6c490).setDepth(924);
+        zombie.jaw = this.add.rectangle(zombie.x, zombie.y - 10, 12, 5, 0x7f9b6f).setDepth(925);
+        zombie.eyeL = this.add.circle(zombie.x - 3, zombie.y - 19, 1.8, 0xff3048).setDepth(926);
+        zombie.eyeR = this.add.circle(zombie.x + 3, zombie.y - 19, 1.8, 0xff3048).setDepth(926);
+        zombie.armL = this.add.rectangle(zombie.x - 10, zombie.y + 2, 5, 18, 0x435a42).setDepth(921);
+        zombie.armR = this.add.rectangle(zombie.x + 10, zombie.y + 4, 5, 18, 0x435a42).setDepth(921);
+    }
+
     createResourceNodes() {
         const addNode = (resource, type, x, y) => {
-            const colorMap = {
-                apple: 0xca3f38,
-                strawberry: 0xe65278,
-                blueberry: 0x6274d9,
-                meat: 0xb7524f,
-                brick: 0x9a4e3c,
-                wood: 0x8a633b,
-                glass: 0x8bcde0,
-                steel: 0x8e9aad
-            };
-
-            const shadow = this.add.ellipse(x, y + 12, 26, 10, 0x000000, 0.2).setDepth(840);
-            const core = this.add.circle(x, y, type === "food" ? 11 : 13, colorMap[resource] || 0xffffff, 0.95).setDepth(845);
-            core.setStrokeStyle(2, 0xffffff, 0.28);
+            const { shadow, core } = this.createResourceVisual(resource, x, y);
 
             const node = {
                 id: `${resource}-${x.toFixed(0)}-${y.toFixed(0)}-${Math.random().toString(16).slice(2, 6)}`,
@@ -624,19 +699,19 @@ export class WorldScene extends Phaser.Scene {
 
         const spawnCluster = (resource, type, count) => {
             for (let i = 0; i < count; i += 1) {
-                const point = this.randomOutsidePoint();
+                const point = deterministicOutsidePoint(i * 19.1 + resource.length * 101.3 + count * 7.7);
                 addNode(resource, type, point.x, point.y);
             }
         };
 
-        const mobileScale = this.isTouchDevice ? 0.46 : 1;
-        spawnCluster("apple", "food", Math.floor(44 * mobileScale));
-        spawnCluster("strawberry", "food", Math.floor(36 * mobileScale));
-        spawnCluster("blueberry", "food", Math.floor(36 * mobileScale));
-        spawnCluster("brick", "material", Math.floor(30 * mobileScale));
-        spawnCluster("wood", "material", Math.floor(36 * mobileScale));
-        spawnCluster("glass", "material", Math.floor(24 * mobileScale));
-        spawnCluster("steel", "material", Math.floor(22 * mobileScale));
+        const mobileScale = this.isTouchDevice ? 0.68 : 1;
+        spawnCluster("apple", "food", Math.floor(68 * mobileScale));
+        spawnCluster("strawberry", "food", Math.floor(52 * mobileScale));
+        spawnCluster("blueberry", "food", Math.floor(52 * mobileScale));
+        spawnCluster("brick", "material", Math.floor(42 * mobileScale));
+        spawnCluster("wood", "material", Math.floor(48 * mobileScale));
+        spawnCluster("glass", "material", Math.floor(34 * mobileScale));
+        spawnCluster("steel", "material", Math.floor(30 * mobileScale));
     }
 
     createCows() {
@@ -666,25 +741,24 @@ export class WorldScene extends Phaser.Scene {
     }
 
     createZombies() {
-        const zombieCount = this.isTouchDevice ? 28 : 52;
+        const zombieCount = this.isTouchDevice ? 42 : 84;
         for (let i = 0; i < zombieCount; i += 1) {
-            const point = this.randomOutsidePoint();
+            const point = deterministicOutsidePoint(700 + i * 31.17);
             const zombie = {
+                id: `zombie-${i}`,
                 x: point.x,
                 y: point.y,
-                speed: Phaser.Math.Between(120, 168),
-                dirX: Phaser.Math.FloatBetween(-1, 1),
-                dirY: Phaser.Math.FloatBetween(-1, 1),
+                speed: 126 + (i % 6) * 9,
+                dirX: seededUnit(100 + i * 1.7) * 2 - 1,
+                dirY: seededUnit(120 + i * 2.1) * 2 - 1,
                 wanderAt: 0,
                 alive: true,
-                respawnAt: 0
+                respawnAt: 0,
+                respawnCount: 0,
+                targetBias: i % 2
             };
 
-            zombie.shadow = this.add.ellipse(zombie.x, zombie.y + 10, 24, 8, 0x000000, 0.25).setDepth(920);
-            zombie.body = this.add.rectangle(zombie.x, zombie.y, 20, 26, 0x406148).setDepth(922);
-            zombie.head = this.add.circle(zombie.x, zombie.y - 18, 8, 0xb6dfb1).setDepth(923);
-            zombie.eyeL = this.add.circle(zombie.x - 2, zombie.y - 18, 1.5, 0xc91f35).setDepth(924);
-            zombie.eyeR = this.add.circle(zombie.x + 2, zombie.y - 18, 1.5, 0xc91f35).setDepth(924);
+            this.createZombieVisual(zombie);
 
             this.zombies.push(zombie);
         }
@@ -952,6 +1026,13 @@ export class WorldScene extends Phaser.Scene {
 
         this.unsubVoiceSignal = this.socketAdapter.on("voiceSignal", (payload) => {
             this.handleVoiceSignal(payload).catch(() => {});
+        });
+
+        this.unsubZombieKilled = this.socketAdapter.on("zombieKilled", ({ id, respawnDelayMs }) => {
+            const zombie = this.zombies.find((entry) => entry.id === id);
+            if (zombie) {
+                this.killZombie(zombie, false, respawnDelayMs);
+            }
         });
 
         this.unsubVoiceStates = this.socketAdapter.on("voiceStates", (payload) => {
@@ -2170,19 +2251,25 @@ export class WorldScene extends Phaser.Scene {
         const localPos = this.getPlayerWorldPosition(this.socketAdapter.id);
         const maxRange = this.isTouchDevice ? ZOMBIE_ACTIVE_RANGE * 0.72 : ZOMBIE_ACTIVE_RANGE;
         const maxRangeSq = maxRange * maxRange;
+        const trackedIds = this.getAllTrackedPlayerIds();
 
         for (const zombie of this.zombies) {
             if (!zombie.alive) {
                 if (time > zombie.respawnAt) {
-                    const p = this.randomOutsidePoint();
+                    zombie.respawnCount += 1;
+                    const p = deterministicOutsidePoint(700 + zombie.respawnCount * 53.11 + zombie.targetBias * 9.3);
                     zombie.x = p.x;
                     zombie.y = p.y;
-                    zombie.dirX = Phaser.Math.FloatBetween(-1, 1);
-                    zombie.dirY = Phaser.Math.FloatBetween(-1, 1);
+                    zombie.dirX = seededUnit(230 + zombie.respawnCount * 1.3) * 2 - 1;
+                    zombie.dirY = seededUnit(250 + zombie.respawnCount * 1.7) * 2 - 1;
                     zombie.alive = true;
                     zombie.shadow.setVisible(true);
+                    zombie.armL.setVisible(true);
+                    zombie.armR.setVisible(true);
                     zombie.body.setVisible(true);
+                    zombie.rib.setVisible(true);
                     zombie.head.setVisible(true);
+                    zombie.jaw.setVisible(true);
                     zombie.eyeL.setVisible(true);
                     zombie.eyeR.setVisible(true);
                 }
@@ -2205,14 +2292,16 @@ export class WorldScene extends Phaser.Scene {
 
             let best = null;
             let bestDist = 99999;
+            const preferredId = trackedIds.length > 1 ? trackedIds[zombie.targetBias % trackedIds.length] : trackedIds[0];
 
-            for (const id of this.getAllTrackedPlayerIds()) {
+            for (const id of trackedIds) {
                 const pos = this.getPlayerWorldPosition(id);
                 if (!pos || this.isInsideSafeZone(pos.x, pos.y, 8)) {
                     continue;
                 }
                 const d = Phaser.Math.Distance.Between(zombie.x, zombie.y, pos.x, pos.y);
-                if (d < bestDist) {
+                const bias = id === preferredId ? -110 : 0;
+                if (d + bias < bestDist) {
                     bestDist = d;
                     best = pos;
                 }
@@ -2248,8 +2337,12 @@ export class WorldScene extends Phaser.Scene {
 
             const visible = this.isInsideCameraView(zombie.x, zombie.y);
             zombie.shadow.setVisible(visible);
+            zombie.armL.setVisible(visible);
+            zombie.armR.setVisible(visible);
             zombie.body.setVisible(visible);
+            zombie.rib.setVisible(visible);
             zombie.head.setVisible(visible);
+            zombie.jaw.setVisible(visible);
             zombie.eyeL.setVisible(visible);
             zombie.eyeR.setVisible(visible);
 
@@ -2257,13 +2350,17 @@ export class WorldScene extends Phaser.Scene {
                 continue;
             }
 
-            const bob = Math.sin((time + zombie.x * 0.1 + zombie.y * 0.06) / 120) * 1.4;
+            const bob = Math.sin((time + zombie.x * 0.1 + zombie.y * 0.06) / 110) * 2.1;
             zombie.shadow.setPosition(zombie.x, zombie.y + 10);
-            zombie.body.setPosition(zombie.x, zombie.y + bob);
-            zombie.head.setPosition(zombie.x, zombie.y - 18 + bob);
-            zombie.eyeL.setPosition(zombie.x - 2, zombie.y - 18 + bob);
-            zombie.eyeR.setPosition(zombie.x + 2, zombie.y - 18 + bob);
-            const eyePulse = 0.65 + 0.35 * Math.sin((time + zombie.x) / 110);
+            zombie.body.setPosition(zombie.x, zombie.y + 2 + bob);
+            zombie.rib.setPosition(zombie.x, zombie.y - 1 + bob);
+            zombie.head.setPosition(zombie.x, zombie.y - 19 + bob);
+            zombie.jaw.setPosition(zombie.x, zombie.y - 10 + bob);
+            zombie.armL.setPosition(zombie.x - 11, zombie.y + 1 + bob + Math.sin(time / 120 + zombie.x) * 2);
+            zombie.armR.setPosition(zombie.x + 11, zombie.y + 3 + bob + Math.cos(time / 120 + zombie.y) * 2);
+            zombie.eyeL.setPosition(zombie.x - 3, zombie.y - 20 + bob);
+            zombie.eyeR.setPosition(zombie.x + 3, zombie.y - 20 + bob);
+            const eyePulse = 0.55 + 0.45 * Math.sin((time + zombie.x) / 90);
             zombie.eyeL.setAlpha(eyePulse);
             zombie.eyeR.setAlpha(eyePulse);
 
@@ -2449,18 +2546,29 @@ export class WorldScene extends Phaser.Scene {
         }
     }
 
-    killZombie(zombie) {
+    killZombie(zombie, shouldBroadcast = true, respawnDelayMs = Phaser.Math.Between(700, 1400)) {
         if (!zombie.alive) {
             return;
         }
 
         zombie.alive = false;
-        zombie.respawnAt = this.time.now + Phaser.Math.Between(700, 1400);
+        zombie.respawnAt = this.time.now + respawnDelayMs;
         zombie.shadow.setVisible(false);
+        zombie.armL.setVisible(false);
+        zombie.armR.setVisible(false);
         zombie.body.setVisible(false);
+        zombie.rib.setVisible(false);
         zombie.head.setVisible(false);
+        zombie.jaw.setVisible(false);
         zombie.eyeL.setVisible(false);
         zombie.eyeR.setVisible(false);
+
+        if (shouldBroadcast) {
+            this.socketAdapter.zombieKilled({
+                id: zombie.id,
+                respawnDelayMs
+            });
+        }
     }
 
     killCow(cow) {
@@ -2481,9 +2589,7 @@ export class WorldScene extends Phaser.Scene {
             y: cow.y + Phaser.Math.Between(-10, 10)
         };
 
-        const shadow = this.add.ellipse(drop.x, drop.y + 12, 26, 10, 0x000000, 0.2).setDepth(840);
-        const core = this.add.circle(drop.x, drop.y, 11, 0xb7524f, 0.95).setDepth(845);
-        core.setStrokeStyle(2, 0xffffff, 0.28);
+        const { shadow, core } = this.createResourceVisual("meat", drop.x, drop.y);
 
         this.resourceNodes.push({
             id: `meat-drop-${drop.x}-${drop.y}-${Math.random().toString(16).slice(2, 6)}`,
@@ -3437,11 +3543,11 @@ export class WorldScene extends Phaser.Scene {
         const cycle = (Math.sin(time / 14000) + 1) / 2;
         const localPos = this.getPlayerWorldPosition(this.socketAdapter.id);
         const inSafe = localPos ? this.isInsideSafeZone(localPos.x, localPos.y, 4) : true;
-        const fearPulse = 0.65 + Math.sin(time / 220) * 0.35;
-        const fearAlpha = inSafe ? 0 : (0.09 + fearPulse * 0.1);
-        this.atmosphereTop?.setAlpha(0.06 + cycle * 0.06);
-        this.atmosphereBottom?.setAlpha(0.08 + cycle * 0.09);
-        this.dayNight.setAlpha(0.06 + cycle * 0.22);
+        const fearPulse = 0.65 + Math.sin(time / 160) * 0.35;
+        const fearAlpha = inSafe ? 0 : (0.18 + fearPulse * 0.16);
+        this.atmosphereTop?.setAlpha(0.04 + cycle * 0.04);
+        this.atmosphereBottom?.setAlpha(0.12 + cycle * 0.14);
+        this.dayNight.setAlpha(0.12 + cycle * 0.28);
         this.outsideFear?.setAlpha(fearAlpha);
         if (this.dayNight.width !== this.scale.width || this.dayNight.height !== this.scale.height) {
             this.atmosphereTop?.setSize(this.scale.width, this.scale.height);
@@ -3490,6 +3596,9 @@ export class WorldScene extends Phaser.Scene {
         }
         if (this.unsubVoiceSignal) {
             this.unsubVoiceSignal();
+        }
+        if (this.unsubZombieKilled) {
+            this.unsubZombieKilled();
         }
         if (this.unsubVoiceState) {
             this.unsubVoiceState();

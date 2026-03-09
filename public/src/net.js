@@ -17,6 +17,7 @@ export function createSocketAdapter(socket) {
     socket.on("voiceStates", (payload) => emit("voiceStates", payload));
     socket.on("hearState", (payload) => emit("hearState", payload));
     socket.on("hearStates", (payload) => emit("hearStates", payload));
+    socket.on("zombieKilled", (payload) => emit("zombieKilled", payload));
 
     function emit(type, payload) {
         const set = listeners.get(type);
@@ -71,6 +72,9 @@ export function createSocketAdapter(socket) {
         },
         hearState(data) {
             socket.emit("hearState", data);
+        },
+        zombieKilled(data) {
+            socket.emit("zombieKilled", data);
         },
         setProfile(data) {
             socket.emit("setProfile", data);

@@ -379,6 +379,16 @@ io.on("connection", (socket) => {
         io.emit("hearState", { id: socket.id, enabled: hearStates[socket.id] });
     });
 
+    socket.on("zombieKilled", (data) => {
+        if (!data?.id) {
+            return;
+        }
+        socket.broadcast.emit("zombieKilled", {
+            id: String(data.id),
+            respawnDelayMs: Number(data.respawnDelayMs) || 1000
+        });
+    });
+
     socket.on("disconnect", () => {
         clearPlayerFromVehicles(socket.id);
         delete players[socket.id];
